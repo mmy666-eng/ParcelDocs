@@ -1,0 +1,21 @@
+# Generated output
+output/*
+!output/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# C# / .NET
+bin/
+obj/
+*.user
+.vs/
+
+# OS / editors
+.DS_Store
+Thumbs.db
