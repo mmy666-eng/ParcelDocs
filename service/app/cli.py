@@ -2,124 +2,17 @@
 
 import argparse
 import logging
-import re
 import sys
 from datetime import date
 from pathlib import Path
 
 from app.config import Config, load_config
-from app.download.cache import DownloadCache
-from app.download.downloader import Downloader, HttpClient, SourceError
-from app.geo.cadastre import GovMapCadastre, parcel_geometry
-from app.models import Address, Document, ManifestEntry, Parcel, Permit, Plan
+from app.download.downloader import HttpClient, SourceError
+from app.models import Address
 from app.output.organizer import OutputOrganizer
-from app.providers.bnei_brak import (
-    BneiBrakPermitsProvider,
-    BneiBrakPlansProvider,
-    ComplotClient,
-    GushFile,
-    is_granted,
-)
-from app.providers.iplan import IplanPlansProvider
+from app.pipeline import NotFoundError, Pipeline, ResolveResult, permit_id, plan_id
 
 log = logging.getLogger("parceldocs")
-
-MANUAL_MAVAT = 'אין עותק במערכת העירונית – להוריד ידנית ממבא"ת'
-MANUAL_NO_DOCUMENTS = "לא נמצאו הוראות או תשריט סרוקים – לפנות לוועדה"
-MANUAL_CITY_UNAVAILABLE = 'המערכת העירונית לא זמינה – להוריד ידנית ממבא"ת או מאתר העירייה'
-
-CITY_SOURCE = "bnei_brak"
-CITY_DISABLED = 'המערכת העירונית (Complot) מושבתת ב-config – תב"עות עירוניות ומסמכים לא נבדקו'
-CITY_UNAVAILABLE = 'המערכת העירונית (Complot) לא זמינה – תב"עות עירוניות ומסמכים לא נבדקו'
-PERMITS_NOT_CHECKED = "היתרי בנייה לא נבדקו – המערכת העירונית לא זמינה"
-MANUAL_NOT_SCANNED = "לא סרוק – לפנות לארכיון"
-
-_NATIONAL_NUMBER = re.compile(r"\d{3}-\d{7}")
-_LOCAL_NUMBER = re.compile(r"(?:בב/)?((?:מק/)?\d+(?:/[֐-׿\d]+)+)")
-
-
-def plan_keys(plan: Plan) -> tuple[set[str], set[str]]:
-    """National (501-xxxxxxx) and local (מק/105/ה) plan numbers mentioned by a plan."""
-    text = f"{plan.number} {plan.name}"
-    national = set(_NATIONAL_NUMBER.findall(text))
-    local = set(_LOCAL_NUMBER.findall(plan.number.replace(" ", "")))
-    return national, local
-
-
-def merge_plans(
-    iplan_plans: list[Plan], city_plans: list[Plan], unmatched_action: str = MANUAL_MAVAT
-) -> list[Plan]:
-    """Join the two sources. City plans carry the documents; iplan adds type and mavat link.
-
-    An iplan plan matches a city plan when its national number appears in the city
-    plan's number or name, or when the city plan's local number appears in its name.
-    """
-    merged = [plan.model_copy(deep=True) for plan in city_plans]
-    city_keys = [plan_keys(plan) for plan in city_plans]
-    for iplan_plan in iplan_plans:
-        match = None
-        for index, (national, _) in enumerate(city_keys):
-            if iplan_plan.number in national:
-                match = index
-                break
-        if match is None:
-            iplan_locals = set(_LOCAL_NUMBER.findall(iplan_plan.name))
-            for index, (_, local) in enumerate(city_keys):
-                if local & iplan_locals:
-                    match = index
-                    break
-        if match is None:
-            merged.append(iplan_plan.model_copy(update={"manual_action": unmatched_action}))
-            continue
-        city = merged[match]
-        if city.number != iplan_plan.number:
-            city.aliases = [*city.aliases, city.number]
-            city.number = iplan_plan.number
-        city.source = f"{city.source}+{iplan_plan.source}"
-        city.plan_type = city.plan_type or iplan_plan.plan_type
-        city.approval_date = city.approval_date or iplan_plan.approval_date
-        city.mavat_url = iplan_plan.mavat_url
-    return merged
-
-
-def collect_permits(
-    provider: BneiBrakPermitsProvider,
-    parcels: list[tuple[int, int]],
-    addresses: list[Address],
-) -> list[Permit]:
-    """Granted permits by parcel and by address (PRD §4.4), one entry per permit number.
-
-    Old permits are often filed under the parcel number from before parcellation, so
-    callers pass both the queried parcel and its municipal child parcels.
-    """
-    requests: dict[str, Permit] = {}
-    for gush, helka in dict.fromkeys(parcels):
-        for permit in provider.find_by_parcel(gush, helka):
-            requests.setdefault(permit.request_number, permit)
-    for address in addresses:
-        for permit in provider.find_by_address(address.street, address.number):
-            requests.setdefault(permit.request_number, permit)
-
-    permits: dict[str, Permit] = {}
-    for listed in requests.values():
-        permit = provider.details(listed)
-        if not is_granted(permit):
-            log.info("request %s has no permit, skipped", permit.request_number)
-            continue
-        key = permit.permit_number or f"request:{permit.request_number}"
-        if key in permits:
-            log.info(
-                "permit %s appears in requests %s and %s",
-                key,
-                permits[key].request_number,
-                permit.request_number,
-            )
-            continue
-        if not provider.get_documents(permit):
-            permit.manual_action = MANUAL_NOT_SCANNED
-        permits[key] = permit
-    log.info("Complot: %d requests, %d granted permits", len(requests), len(permits))
-    return list(permits.values())
 
 
 def run(
@@ -131,187 +24,61 @@ def run(
     http: HttpClient | None = None,
     today: date | None = None,
 ) -> int:
-    http = http or HttpClient(
-        config.user_agent,
-        config.requests_per_second,
-        config.timeout_seconds,
-        config.retries,
-        legacy_tls_hosts=config.legacy_tls_hosts,
-        host_min_interval_seconds=config.host_min_interval_seconds,
-        rate_limited_wait_seconds=config.rate_limited_wait_seconds,
-    )
-    organizer = OutputOrganizer(config.output_dir, project, gush, helka, today or date.today())
+    pipeline = Pipeline(config, http)
     handler = None
     if not dry_run:
+        # The log covers the whole run, so the folder is created before resolving.
+        organizer = OutputOrganizer(config.output_dir, project, gush, helka, today or date.today())
         organizer.create()
         handler = _log_to_file(organizer.log_file)
     try:
-        return _run(config, http, organizer, gush, helka, project, dry_run)
+        log.info("run: project=%s gush=%d helka=%d dry_run=%s", project, gush, helka, dry_run)
+        try:
+            result = pipeline.resolve_parcel(gush, helka)
+        except NotFoundError as exc:
+            print(f"{exc}.", file=sys.stderr)
+            return 2
+        folder = None
+        files = cached = 0
+        warnings = result.warnings
+        if not dry_run:
+            downloaded = pipeline.download(result, project, today=today)
+            folder, warnings = downloaded.folder, downloaded.warnings
+            files = len(downloaded.files)
+            cached = sum(1 for f in downloaded.files if f.from_cache)
+        _print_summary(result, warnings, folder, files, cached)
+        return 0
     finally:
         if handler is not None:
             logging.getLogger().removeHandler(handler)
             handler.close()
 
 
-def _run(
-    config: Config,
-    http: HttpClient,
-    organizer: OutputOrganizer,
-    gush: int,
-    helka: int,
-    project: str,
-    dry_run: bool,
-) -> int:
-    log.info("run: project=%s gush=%d helka=%d dry_run=%s", project, gush, helka, dry_run)
-    warnings: list[str] = []
-    cadastre = GovMapCadastre(http, config.sources.govmap_wfs)
-    complot = ComplotClient(
-        http,
-        config.sources.complot_base,
-        config.sources.complot_site_id,
-        config.sources.complot_ws,
-    )
-    city = BneiBrakPlansProvider(complot, cadastre, config.citywide_plans)
-    city_permits = BneiBrakPermitsProvider(complot)
-    iplan = IplanPlansProvider(http, config.sources.iplan_plans_layer)
-
-    parcel = cadastre.get_parcel(gush, helka)
-    city_available = CITY_SOURCE not in config.disabled_sources
-    gush_files: list[GushFile] = []
-    if not city_available:
-        warnings.append(CITY_DISABLED)
-    else:
-        try:
-            gush_files = city.resolve_parcels(gush, helka)
-        except SourceError as exc:
-            log.error("Complot unavailable: %s", exc)
-            warnings.append(f"{CITY_UNAVAILABLE}: {exc}")
-            city_available = False
-    if not gush_files and parcel is None:
-        print(f'גוש {gush} חלקה {helka} לא נמצאו לא במפ"י ולא במערכת העירונית.', file=sys.stderr)
-        return 2
-    if not gush_files and parcel is not None:
-        gush_files = [GushFile(gush=parcel.gush, helka=parcel.helka)]
-
-    parcels = [
-        Parcel(
-            gush=gf.gush,
-            helka=gf.helka,
-            addresses=gf.addresses,
-            status=parcel.status
-            if parcel and (parcel.gush, parcel.helka) == (gf.gush, gf.helka)
-            else None,
-        )
-        for gf in gush_files
-    ]
-    if [(gf.gush, gf.helka) for gf in gush_files] != [(gush, helka)]:
-        children = ", ".join(f"{p.gush}/{p.helka}" for p in parcels)
-        warnings.append(f"החלקה {gush}/{helka} עברה פרצלציה במערכת העירונית: {children}")
-
-    iplan_plans: list[Plan] = []
-    geometry = parcel_geometry(parcel) if parcel else None
-    if geometry is None:
-        warnings.append(f'החלקה {gush}/{helka} לא קיימת בקדסטר של מפ"י – חיפוש מרחבי ב-iplan דולג')
-    else:
-        iplan_plans = iplan.find_by_polygon(geometry.buffer(config.parcel_buffer_m))
-
-    city_plans: list[Plan] = []
-    if city_available:
-        try:
-            city_plans = city.find_by_parcels(gush_files)
-        except SourceError as exc:
-            log.error("Complot unavailable: %s", exc)
-            warnings.append(f"{CITY_UNAVAILABLE}: {exc}")
-            city_available = False
-    plans = merge_plans(
-        iplan_plans, city_plans, MANUAL_MAVAT if city_available else MANUAL_CITY_UNAVAILABLE
-    )
-    selections = {}
-    for plan in plans:
-        if plan.manual_action:
-            continue
-        selected = city.get_documents(plan)
-        if not selected:
-            plan.manual_action = MANUAL_NO_DOCUMENTS
-        selections[id(plan)] = selected
-
-    permits: list[Permit] = []
-    if city_available:
-        addresses = [a for p in parcels for a in p.addresses]
-        query_parcels = [(gush, helka), *((p.gush, p.helka) for p in parcels)]
-        try:
-            permits = collect_permits(city_permits, query_parcels, addresses)
-        except SourceError as exc:
-            log.error("Complot unavailable: %s", exc)
-            warnings.append(f"{PERMITS_NOT_CHECKED}: {exc}")
-    else:
-        warnings.append(PERMITS_NOT_CHECKED)
-
-    downloads: list[tuple[str, Document, Path]] = []
-    for plan in plans:
-        documents = selections.get(id(plan), [])
-        for doc, path in zip(documents, organizer.document_paths(plan, documents), strict=True):
-            downloads.append((plan.number, doc, path))
-    for permit in permits:
-        documents = city_permits.get_documents(permit)
-        label = f"היתר {permit.permit_number or permit.request_number}"
-        for doc, path in zip(
-            documents, organizer.permit_document_paths(permit, documents), strict=True
-        ):
-            downloads.append((label, doc, path))
-
-    files: list[ManifestEntry] = []
-    if not dry_run:
-        cache = DownloadCache(config.cache_db)
-        downloader = Downloader(http, cache)
-        try:
-            for label, doc, path in downloads:
-                try:
-                    files.append(downloader.download(doc.url, path, doc.source, organizer.root))
-                except SourceError as exc:
-                    log.error("download failed: %s", exc)
-                    warnings.append(f"הורדה נכשלה: {label} – {doc.title}")
-        finally:
-            cache.close()
-        organizer.write_manifest(project, gush, helka, parcels, plans, files, warnings, permits)
-
-    _print_summary(parcels, plans, selections, permits, files, warnings, organizer, dry_run)
-    return 0
-
-
 def _print_summary(
-    parcels: list[Parcel],
-    plans: list[Plan],
-    selections: dict[int, list],
-    permits: list[Permit],
-    files: list[ManifestEntry],
-    warnings: list[str],
-    organizer: OutputOrganizer,
-    dry_run: bool,
+    result: ResolveResult, warnings: list[str], folder: Path | None, files: int, cached: int
 ) -> None:
     print("חלקות:")
-    for p in parcels:
+    for p in result.parcels:
         print(f"  {p.gush}/{p.helka}  {_addresses(p.addresses)}")
-    print(f'\nתב"עות מאושרות ({len(plans)}):')
-    for plan in plans:
+    print(f'\nתב"עות מאושרות ({len(result.plans)}):')
+    for plan in result.plans:
         when = plan.approval_date.isoformat() if plan.approval_date else "-"
-        docs = len(selections.get(id(plan), []))
+        docs = len(result.plan_documents.get(plan_id(plan), []))
         note = f"  ⚠ {plan.manual_action}" if plan.manual_action else f"  {docs} מסמכים"
         print(f"  {plan.number:<16} {when}  {plan.name[:50]}{note}")
-    print(f"\nהיתרי בנייה ({len(permits)}):")
-    for permit in permits:
+    print(f"\nהיתרי בנייה ({len(result.permits)}):")
+    for permit in result.permits:
         when = str(permit.date or permit.request_date or "-")
-        docs = sum(1 for d in permit.documents if d.kind)
+        docs = len(result.permit_documents.get(permit_id(permit), []))
         note = f"  ⚠ {permit.manual_action}" if permit.manual_action else f"  {docs} מסמכים"
         description = (permit.description or "")[:40]
         print(f"  היתר {permit.permit_number or '-':<8} {when}  {description}{note}")
     for warning in warnings:
         print(f"⚠ {warning}")
-    if dry_run:
+    if folder is None:
         print("\n(dry run – לא הורדו קבצים)")
     else:
-        cached = sum(1 for f in files if f.from_cache)
-        print(f"\nהורדו {len(files) - cached} קבצים, {cached} מה-cache. תיקייה: {organizer.root}")
+        print(f"\nהורדו {files - cached} קבצים, {cached} מה-cache. תיקייה: {folder}")
 
 
 def _addresses(addresses: list[Address]) -> str:

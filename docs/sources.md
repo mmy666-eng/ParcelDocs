@@ -130,6 +130,8 @@ GET https://handasi.complot.co.il/magicscripts/mgrqispi.dll?appname=cixpa&prgnam
 - ה-API של האתר: `https://mavat.iplan.gov.il/rest/api` (מתוך `main.*.js` של האתר).
 - בקוד: `IsReCaptcha: true`. כל קריאה, חוץ מ-`getAboutHtml`, `GetAppealUrl` ו-`Luts/...`, דורשת טוקן reCAPTCHA v3.
 - `robots.txt` אוסר `*.pdf`.
+- הורדת מסמך: `GET /rest/api/Attacments/?eid=<id>&fn=<name>&edn=<id>&pn=<plan>`, ולכמה מסמכים `POST /rest/api/zipAttacments`. יש גם `PlanInstruction/<id>` ו-`PlanTasrit/<id>`. אף אחת מהקריאות האלה לא ברשימת הפטורים מ-reCAPTCHA, ומזהי המסמכים (`eid`, `edn`) מגיעים מקריאת פרטי התכנית (`SV4/...`), שגם היא דורשת טוקן. כלומר, אין מסלול ארצי להורדת הוראות ותשריט בלי reCAPTCHA. (נבדק מקוד האתר בלבד. ניסיון קריאה ישירה ל-API נחסם ע"י מערכת ההרשאות, ולא בוצע.)
+- **מקור ארצי אחר:** שכבת iplan (§3א) מחזירה רק קישור לדף התכנית במבא"ת (`pl_url`) ולא קישורי מסמכים. XPLAN מציע להוריד קבצים גיאוגרפיים (GIS), לא PDF. לא נמצא מקור ארצי פתוח אחר למסמכי תכנית.
 - **לא משתמשים בו (PRD §7).** את `pl_url` שומרים בדוח כקישור לפעולה ידנית. התוצאה: מסמכים של תכניות ארציות ומחוזיות (למשל `תמא/ 60`) שאין להן עותק ב-Complot יסומנו "דורש פעולה ידנית".
 
 ## 4. רישוי זמין ❌ לא נמצא ממשק ציבורי

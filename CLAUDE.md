@@ -36,7 +36,7 @@ ParcelDocs: פוליליין סגור ב-AutoCAD/ZWCAD (ITM, EPSG:2039) ← זי
 - C#: לשמור על תאימות AutoCAD ו-ZWCAD מאותו קוד. ההבדלים רק דרך `#if ZWCAD` או קובץ alias.
 
 ## שלב נוכחי
-שלב 0 (מחקר מקורות) הושלם, ראו `docs/sources.md`. שלב 1 (תב"עות ב-CLI) אושר ובביצוע.
+ראו `docs/progress.md`.
 
 ## פקודות
 מתוך `service/` (Python 3.12, venv ב-`service/.venv`):
@@ -44,3 +44,9 @@ ParcelDocs: פוליליין סגור ב-AutoCAD/ZWCAD (ITM, EPSG:2039) ← זי
 - בדיקות: `.venv\Scripts\python -m pytest -q` (בלי רשת, fixtures ב-`tests/fixtures/`)
 - עיצוב ובדיקת קוד: `.venv\Scripts\python -m ruff format app tests` ו-`.venv\Scripts\python -m ruff check app tests`
 - הרצה: `.venv\Scripts\python -m app.cli --gush 6123 --helka 443 --project "שם" [--dry-run]`
+- שירות: `.venv\Scripts\python -m app.main` (FastAPI על `127.0.0.1:8765` בלבד)
+
+מתוך `plugin/ParcelDocs.Plugin/` (.NET SDK 8, יעד net48):
+- בנייה ל-AutoCAD 2024: `dotnet build -c AutoCAD` → `bin\x64\AutoCAD\net48\ParcelDocs.Plugin.dll`
+- טעינה ב-AutoCAD: `NETLOAD` על ה-DLL, ואז `PARCELDOCS`. השירות צריך לרוץ לפני כן.
+- נתיב ה-DLL של AutoCAD: `C:\Program Files\Autodesk\AutoCAD 2024\` (אפשר לשנות עם `-p:AutoCADDir=...`). ההפניות הן `Private=False`, כלומר לא מועתקות לתיקיית הפלט.

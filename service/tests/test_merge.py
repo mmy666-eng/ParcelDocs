@@ -1,5 +1,5 @@
-from app.cli import MANUAL_MAVAT, merge_plans
 from app.models import Plan
+from app.pipeline import MANUAL_MAVAT, merge_plans
 
 
 def _city(number: str, name: str, source_id: str) -> Plan:

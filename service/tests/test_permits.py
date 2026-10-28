@@ -4,9 +4,9 @@ from urllib.parse import parse_qs, urlsplit
 
 import httpx
 
-from app.cli import MANUAL_NOT_SCANNED, collect_permits
 from app.models import Address, Document, DocumentKind, Permit
 from app.output.organizer import OutputOrganizer
+from app.pipeline import MANUAL_NOT_SCANNED, collect_permits
 from app.providers.bnei_brak import (
     BneiBrakPermitsProvider,
     ComplotClient,

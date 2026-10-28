@@ -26,6 +26,8 @@ class Config(BaseModel):
     legacy_tls_hosts: list[str] = []
     host_min_interval_seconds: dict[str, float] = {}
     rate_limited_wait_seconds: float = 60.0
+    host_max_requests_per_run: dict[str, int] = {}
+    fail_fast_429_hosts: list[str] = []
     parcel_buffer_m: float = -0.5
     citywide_plans: list[int] = []
     disabled_sources: list[str] = []

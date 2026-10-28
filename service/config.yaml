@@ -11,7 +11,13 @@ retries: 4
 
 # Slower pace for hosts that answer 429 at one request per second (docs/sources.md §5.1).
 host_min_interval_seconds:
-  handasi.complot.co.il: 3.0
+  handasi.complot.co.il: 5.0
+# Maximum requests per run to a host; the run reports what it could not check.
+host_max_requests_per_run:
+  handasi.complot.co.il: 30
+# Hosts where a 429 stops all further requests in the run instead of waiting and retrying.
+fail_fast_429_hosts:
+  - handasi.complot.co.il
 # Wait after a 429 without Retry-After; multiplied by the attempt number.
 rate_limited_wait_seconds: 60
 

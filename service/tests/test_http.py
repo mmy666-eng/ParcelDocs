@@ -2,7 +2,12 @@ import httpx
 import pytest
 
 from app.download import downloader
-from app.download.downloader import HttpClient, SourceError
+from app.download.downloader import (
+    HttpClient,
+    RateLimitedError,
+    RequestBudgetError,
+    SourceError,
+)
 
 URL = "https://handasi.complot.co.il/x"
 
@@ -51,6 +56,35 @@ def test_client_errors_are_not_retried(sleeps: list[float]):
     with pytest.raises(SourceError, match="404"):
         client.get(URL)
     assert sleeps == []
+
+
+def test_fail_fast_429_stops_all_requests_to_host(sleeps: list[float]):
+    responses = [httpx.Response(429), httpx.Response(200)]
+    client = _client(
+        responses, requests_per_second=0, fail_fast_429_hosts=["handasi.complot.co.il"]
+    )
+    with pytest.raises(RateLimitedError):
+        client.get(URL)
+    with pytest.raises(RateLimitedError):
+        client.get(URL)
+    assert sleeps == []
+    assert len(responses) == 1  # the second request was never sent
+
+    client.start_run()
+    assert client.get(URL).status_code == 200
+
+
+def test_request_budget_per_host(sleeps: list[float]):
+    client = _client(
+        [httpx.Response(200)] * 3,
+        requests_per_second=0,
+        host_max_requests={"handasi.complot.co.il": 2},
+    )
+    client.get(URL)
+    client.get(URL)
+    with pytest.raises(RequestBudgetError):
+        client.get(URL)
+    assert client.request_count("handasi.complot.co.il") == 2
 
 
 def test_host_interval_overrides_default(sleeps: list[float]):

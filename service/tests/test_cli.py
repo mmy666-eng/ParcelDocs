@@ -5,8 +5,9 @@ from urllib.parse import parse_qs, urlsplit
 
 import httpx
 
-from app.cli import MANUAL_CITY_UNAVAILABLE, MANUAL_MAVAT, run
+from app.cli import run
 from app.config import Config, SourcesConfig
+from app.pipeline import MANUAL_CITY_UNAVAILABLE, MANUAL_MAVAT
 from tests.conftest import fixture_bytes, offline_http
 
 PDF = b"%PDF-1.4 fixture"

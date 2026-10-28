@@ -24,6 +24,14 @@ class SourceError(Exception):
     """A source answered with something we cannot use."""
 
 
+class RateLimitedError(SourceError):
+    """A host configured to fail fast answered 429; it is not contacted again this run."""
+
+
+class RequestBudgetError(SourceError):
+    """The configured number of requests to a host for this run is used up."""
+
+
 class HttpClient:
     def __init__(
         self,
@@ -36,9 +44,15 @@ class HttpClient:
         legacy_tls_hosts: list[str] | None = None,
         host_min_interval_seconds: dict[str, float] | None = None,
         rate_limited_wait_seconds: float = 60.0,
+        host_max_requests: dict[str, int] | None = None,
+        fail_fast_429_hosts: list[str] | None = None,
     ) -> None:
         self._min_interval = 1.0 / requests_per_second if requests_per_second > 0 else 0.0
         self._host_min_interval = host_min_interval_seconds or {}
+        self._host_max_requests = host_max_requests or {}
+        self._fail_fast_429 = set(fail_fast_429_hosts or [])
+        self._request_count: dict[str, int] = {}
+        self._blocked_hosts: set[str] = set()
         self._retries = retries
         self._backoff = backoff_seconds
         self._rate_limited_wait = rate_limited_wait_seconds
@@ -73,7 +87,9 @@ class HttpClient:
         host = urlsplit(url).netloc
         client = self._legacy_client if host in self._legacy_tls_hosts else self._client
         for attempt in range(1, self._retries + 1):
+            self._check_allowed(host)
             self._wait_turn(host)
+            self._request_count[host] = self._request_count.get(host, 0) + 1
             try:
                 response = client.request(method, url, **kwargs)  # type: ignore[arg-type]
             except httpx.TransportError as exc:
@@ -85,6 +101,9 @@ class HttpClient:
                     if response.is_error:
                         raise SourceError(f"{method} {url} returned HTTP {response.status_code}")
                     return response
+                if response.status_code == 429 and host in self._fail_fast_429:
+                    self._blocked_hosts.add(host)
+                    raise RateLimitedError(f"{host} returned HTTP 429; no further requests")
                 if attempt == self._retries:
                     raise SourceError(f"{method} {url} returned HTTP {response.status_code}")
                 wait = self._backoff * attempt
@@ -102,6 +121,21 @@ class HttpClient:
                 continue
             time.sleep(self._backoff * attempt)
         raise AssertionError("unreachable")
+
+    def _check_allowed(self, host: str) -> None:
+        if host in self._blocked_hosts:
+            raise RateLimitedError(f"{host} already returned HTTP 429 in this run")
+        limit = self._host_max_requests.get(host)
+        if limit is not None and self._request_count.get(host, 0) >= limit:
+            raise RequestBudgetError(f"{host}: request budget of {limit} for this run is used up")
+
+    def request_count(self, host: str) -> int:
+        return self._request_count.get(host, 0)
+
+    def start_run(self) -> None:
+        """Reset per-run request budgets and 429 stops (the service handles many runs)."""
+        self._request_count.clear()
+        self._blocked_hosts.clear()
 
     def _wait_turn(self, host: str) -> None:
         last = self._last_request.get(host)

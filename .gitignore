@@ -13,6 +13,7 @@ venv/
 # C# / .NET
 bin/
 obj/
+*.nupkg
 *.user
 .vs/
 
