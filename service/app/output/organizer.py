@@ -25,11 +25,25 @@ def project_folder_name(project: str, gush: int, helka: int, day: date) -> str:
 
 class OutputOrganizer:
     def __init__(self, base_dir: Path, project: str, gush: int, helka: int, day: date) -> None:
-        self.root = base_dir / project_folder_name(project, gush, helka, day)
+        self._set_root(base_dir / project_folder_name(project, gush, helka, day))
+
+    @classmethod
+    def from_root(cls, root: Path) -> "OutputOrganizer":
+        """An existing project folder (as when filing mavat downloads into it later)."""
+        organizer = cls.__new__(cls)
+        organizer._set_root(root)
+        return organizer
+
+    def _set_root(self, root: Path) -> None:
+        self.root = root
         self.summary_dir = self.root / SUMMARY_DIR
         self.permits_dir = self.root / PERMITS_DIR
         self.plans_dir = self.root / PLANS_DIR
         self.log_dir = self.root / LOG_DIR
+
+    @property
+    def manifest_file(self) -> Path:
+        return self.summary_dir / "manifest.json"
 
     def create(self) -> None:
         for folder in (self.summary_dir, self.permits_dir, self.plans_dir, self.log_dir):
@@ -117,7 +131,7 @@ class OutputOrganizer:
             "files": [f.model_dump(mode="json") for f in files],
             "warnings": warnings,
         }
-        path = self.summary_dir / "manifest.json"
+        path = self.manifest_file
         long_path(path).write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
         )

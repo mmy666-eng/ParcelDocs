@@ -21,6 +21,9 @@ COMPLOT_PAGES = {
     ("GetBakashotByGush", "443"): "complot_requests_gush_6123_443.html",
     ("GetBakashaFile", "195000038"): "complot_request_20177.html",
 }
+# Israel Land Authority TabaSearch answers, by (gush, chelka) or by plan number.
+RMI_BY_PARCEL = {("6123", "443"): "rmi_plans_6123_443.json"}
+RMI_BY_NUMBER = {"501-0175646": "rmi_plans_501-0175646.json"}
 
 
 def _config(tmp_path: Path, disabled: list[str]) -> Config:
@@ -58,9 +61,29 @@ def _handler(hosts: list[str]):
             return httpx.Response(200, content=fixture_bytes(name))
         if host == "archive.gis-net.co.il":
             return httpx.Response(200, content=PDF)
+        if host == "apps.land.gov.il":
+            return _rmi_response(request)
         raise AssertionError(f"unexpected host {host}")
 
     return handler
+
+
+def _rmi_response(request: httpx.Request) -> httpx.Response:
+    path = request.url.path
+    if path.endswith("/SerachPlans/GetPlanTypesList"):
+        return httpx.Response(200, content=fixture_bytes("rmi_plan_types.json"))
+    if path.endswith("/SerachPlans/GetPlans"):
+        body = json.loads(request.content)
+        assert body["planTypes"], "the search must send the plan type codes"
+        name = RMI_BY_NUMBER.get(body["planNumber"]) or RMI_BY_PARCEL.get(
+            (body["gush"], body["chelka"]), "rmi_plans_empty.json"
+        )
+        return httpx.Response(200, content=fixture_bytes(name))
+    if path.startswith("/IturTabotData/"):
+        assert "\\" not in path and "%5C" not in str(request.url)
+        # Distinct content per file, as the library keeps one copy per SHA256.
+        return httpx.Response(200, content=PDF + path.encode())
+    raise AssertionError(f"unexpected rmi request {request.url}")
 
 
 def _manifest(tmp_path: Path) -> dict:
@@ -86,21 +109,32 @@ def test_full_run_with_city_system(tmp_path: Path):
     addresses = [(a["street"], a["number"]) for a in manifest["parcels"][0]["addresses"]]
     assert addresses == [("הבנים", "3")]
     plans = {p["number"]: p for p in manifest["plans"]}
-    # 3896 is in the city system and in iplan: merged, with documents.
-    assert plans["501-0873794"]["source"] == "bnei_brak+iplan"
+    # 3896 is in the city system, iplan and rmi: merged; rmi's documents come first.
+    assert plans["501-0873794"]["source"] == "bnei_brak+iplan+rmi"
+    assert plans["501-0873794"]["documents_source"] == "rmi"
     assert plans["501-0873794"]["manual_action"] is None
-    # Older local plan only in the city system.
+    # Older local plan only in the city system: documents from the city archive.
     assert plans["מק/105/ה"]["source"] == "bnei_brak"
+    assert plans["מק/105/ה"]["documents_source"] == "bnei_brak"
+    # Old plans only rmi knows are added, with their documents.
+    assert plans["בב/68"]["source"] == "rmi"
+    assert plans["בב/68"]["approval_date"] == "1959-06-04"
     # National plan only in iplan: manual download from mavat.
     assert plans["תמא/ 60"]["manual_action"] == MANUAL_MAVAT
+    # Listed by rmi (found by number) but without documents.
+    assert plans["501-0175646"]["source"] == "iplan+rmi"
+    assert plans["501-0175646"]["manual_action"] == MANUAL_MAVAT
 
     paths = sorted(f["path"] for f in manifest["files"])
     roof = "02_תבעות/501-0873794_קביעת_הוראות_לחדרי_גג_ודירות_גג"
     assert f"{roof}/הוראות.pdf" in paths
     assert f"{roof}/תשריט.pdf" in paths
-    assert f"{roof}/תשריט_2.pdf" in paths
+    assert f"{roof}/נספחים/בינוי.pdf" in paths
+    assert "02_תבעות/מק-105-ה_השלמת_יחידת_דיור_אחת/הוראות.pdf" in paths
+    assert "02_תבעות/בב-68_קביעת_אזורים/תשריט.pdf" in paths
     assert all(len(f["sha256"]) == 64 for f in manifest["files"])
     assert any("פרצלציה" in w for w in manifest["warnings"])
+    assert any("מק/105/ה: חסרים תשריט" in w for w in manifest["warnings"])
     assert [p["permit_number"] for p in manifest["permits"]] == ["9545"]
     assert "01_היתרי_בניה/1989_היתר_9545/היתר.pdf" in paths
     root = tmp_path / "out" / "בדיקה_ג6123_ח443_2026-10-28"
@@ -122,9 +156,16 @@ def test_disabled_city_system_is_never_contacted(tmp_path: Path):
     assert "handasi.complot.co.il" not in hosts
     assert "archive.gis-net.co.il" not in hosts
     manifest = _manifest(tmp_path)
-    assert len(manifest["plans"]) == 8
-    assert all(p["manual_action"] == MANUAL_CITY_UNAVAILABLE for p in manifest["plans"])
-    assert manifest["files"] == []
+    # 8 plans from iplan and 6 older ones from rmi; rmi has documents for 12 of them.
+    assert len(manifest["plans"]) == 14
+    manual = sorted(p["number"] for p in manifest["plans"] if p["manual_action"])
+    assert manual == ["501-0175646", "תמא/ 60"]
+    assert all(
+        p["manual_action"] == MANUAL_CITY_UNAVAILABLE
+        for p in manifest["plans"]
+        if p["manual_action"]
+    )
+    assert {f["source"] for f in manifest["files"]} == {"rmi"}
     assert manifest["permits"] == []
     assert any("היתרי בנייה לא נבדקו" in w for w in manifest["warnings"])
     # The cadastre has no addresses; the warning says why they are missing.
@@ -135,3 +176,49 @@ def test_disabled_city_system_is_never_contacted(tmp_path: Path):
     dxf = (root / "00_סיכום" / "polygon.dxf").read_text(encoding="ascii")
     assert "PARCELDOCS_PARCELS" in dxf
     assert "6123/443" in dxf
+
+
+def test_city_and_rmi_disabled_leaves_plans_for_mavat(tmp_path: Path):
+    hosts: list[str] = []
+    code = run(
+        _config(tmp_path, ["bnei_brak", "rmi"]),
+        6123,
+        443,
+        "בדיקה",
+        http=offline_http(_handler(hosts)),
+        today=date(2026, 10, 28),
+    )
+
+    assert code == 0
+    assert "apps.land.gov.il" not in hosts
+    manifest = _manifest(tmp_path)
+    assert len(manifest["plans"]) == 8
+    assert all(p["manual_action"] == MANUAL_CITY_UNAVAILABLE for p in manifest["plans"])
+    assert manifest["files"] == []
+
+
+def test_library_is_filled_then_used_before_any_source(tmp_path: Path):
+    config = _config(tmp_path, ["bnei_brak"])
+    config.plans_library = tmp_path / "library"
+    first: list[str] = []
+    run(config, 6123, 443, "ראשון", http=offline_http(_handler(first)), today=date(2026, 10, 28))
+
+    roof = tmp_path / "library" / "501-0873794"
+    assert (roof / "הוראות.pdf").is_file()
+    assert (roof / "נספחים" / "בינוי.pdf").is_file()
+    entry = json.loads((roof / "plan.json").read_text(encoding="utf-8"))
+    assert {f["source"] for f in entry["files"]} == {"rmi"}
+
+    second: list[str] = []
+    http = offline_http(_handler(second))
+    run(config, 6123, 443, "שני", http=http, today=date(2026, 10, 28))
+
+    root = tmp_path / "out" / "שני_ג6123_ח443_2026-10-28"
+    manifest = json.loads((root / "00_סיכום" / "manifest.json").read_text(encoding="utf-8"))
+    plans = {p["number"]: p for p in manifest["plans"]}
+    assert plans["501-0873794"]["documents_source"] == "library"
+    library_files = [f for f in manifest["files"] if f["source"] == "library"]
+    assert len(library_files) == len(manifest["files"]) == 48
+    assert {f["origin_source"] for f in library_files} == {"rmi"}
+    # Only the plan search itself went to rmi; no file was fetched again.
+    assert http.request_count("apps.land.gov.il") == 3

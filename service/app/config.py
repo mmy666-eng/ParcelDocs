@@ -14,6 +14,8 @@ class SourcesConfig(BaseModel):
     complot_base: str
     complot_site_id: int
     complot_ws: str | None = None
+    rmi_api: str = "https://apps.land.gov.il/TabaSearch/api"
+    rmi_files: str = "https://apps.land.gov.il"
 
 
 class Config(BaseModel):
@@ -31,6 +33,12 @@ class Config(BaseModel):
     parcel_buffer_m: float = -0.5
     citywide_plans: list[int] = []
     disabled_sources: list[str] = []
+    # Shared office folder of plan documents, checked before any source; None = off.
+    plans_library: Path | None = None
+    # Where the browser saves files the user downloads from mavat; None = ~/Downloads.
+    downloads_dir: Path | None = None
+    # Move filed downloads into a subfolder of downloads_dir instead of leaving them.
+    move_filed_downloads: bool = True
     sources: SourcesConfig
 
 
@@ -41,4 +49,12 @@ def load_config(path: Path | None = None) -> Config:
     base = path.parent
     config.output_dir = (base / config.output_dir).resolve()
     config.cache_db = (base / config.cache_db).resolve()
+    if config.plans_library is not None:
+        config.plans_library = (base / config.plans_library).resolve()
+    if config.downloads_dir is not None:
+        config.downloads_dir = (base / config.downloads_dir.expanduser()).resolve()
     return config
+
+
+def downloads_dir(config: Config) -> Path:
+    return config.downloads_dir or Path.home() / "Downloads"

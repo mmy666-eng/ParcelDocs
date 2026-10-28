@@ -53,10 +53,54 @@ namespace ParcelDocs.Plugin
                 new DownloadRequest { ResolveId = resolveId, Project = project, Selected = selected });
         }
 
+        public HealthResponse Health()
+        {
+            return Get<HealthResponse>("/health");
+        }
+
+        // The mavat step: the service opens plan pages in the browser and files what the
+        // user downloads there. Every status call also checks the downloads folder.
+        public AssistStatusDto MavatStart(string folder)
+        {
+            return Post<MavatStartRequest, AssistStatusDto>("/mavat/start", new MavatStartRequest { Folder = folder });
+        }
+
+        public AssistStatusDto MavatStatus()
+        {
+            return Get<AssistStatusDto>("/mavat/status");
+        }
+
+        public AssistStatusDto MavatOpen(string planId)
+        {
+            return Post<MavatPlanRequest, AssistStatusDto>("/mavat/open", new MavatPlanRequest { PlanId = planId });
+        }
+
+        public AssistStatusDto MavatAssign(string name, string planId)
+        {
+            return Post<MavatPlanRequest, AssistStatusDto>(
+                "/mavat/assign", new MavatPlanRequest { Name = name, PlanId = planId });
+        }
+
+        public AssistStatusDto MavatStop()
+        {
+            return Post<MavatPlanRequest, AssistStatusDto>("/mavat/stop", new MavatPlanRequest());
+        }
+
+        private TResponse Get<TResponse>(string path)
+        {
+            var response = Run(() => _http.GetAsync(path));
+            return Read<TResponse>(response);
+        }
+
         private TResponse Post<TRequest, TResponse>(string path, TRequest body)
         {
             var content = new StringContent(Serialize(body), Encoding.UTF8, "application/json");
             var response = Run(() => _http.PostAsync(path, content));
+            return Read<TResponse>(response);
+        }
+
+        private static TResponse Read<TResponse>(HttpResponseMessage response)
+        {
             var text = Run(() => response.Content.ReadAsStringAsync());
             if (!response.IsSuccessStatusCode)
             {
@@ -161,7 +205,9 @@ namespace ParcelDocs.Plugin
         [DataMember(Name = "plan_type")] public string PlanType { get; set; }
         [DataMember(Name = "approval_date")] public string ApprovalDate { get; set; }
         [DataMember(Name = "documents")] public int Documents { get; set; }
+        [DataMember(Name = "documents_source")] public string DocumentsSource { get; set; }
         [DataMember(Name = "manual_action")] public string ManualAction { get; set; }
+        [DataMember(Name = "mavat_url")] public string MavatUrl { get; set; }
     }
 
     [DataContract]
@@ -195,5 +241,70 @@ namespace ParcelDocs.Plugin
         [DataMember(Name = "plans")] public int Plans { get; set; }
         [DataMember(Name = "permits")] public int Permits { get; set; }
         [DataMember(Name = "warnings")] public List<string> Warnings { get; set; }
+        [DataMember(Name = "mavat_pending")] public int MavatPending { get; set; }
+    }
+
+    [DataContract]
+    public sealed class HealthResponse
+    {
+        [DataMember(Name = "status")] public string Status { get; set; }
+        [DataMember(Name = "output_dir")] public string OutputDir { get; set; }
+    }
+
+    [DataContract]
+    public sealed class MavatStartRequest
+    {
+        [DataMember(Name = "folder")] public string Folder { get; set; }
+    }
+
+    [DataContract]
+    public sealed class MavatPlanRequest
+    {
+        [DataMember(Name = "plan_id", EmitDefaultValue = false)] public string PlanId { get; set; }
+        [DataMember(Name = "name", EmitDefaultValue = false)] public string Name { get; set; }
+    }
+
+    [DataContract]
+    public sealed class AssistPlanDto
+    {
+        [DataMember(Name = "id")] public string Id { get; set; }
+        [DataMember(Name = "number")] public string Number { get; set; }
+        [DataMember(Name = "name")] public string Name { get; set; }
+        [DataMember(Name = "mavat_url")] public string MavatUrl { get; set; }
+        [DataMember(Name = "has_instructions")] public bool HasInstructions { get; set; }
+        [DataMember(Name = "has_map")] public bool HasMap { get; set; }
+        [DataMember(Name = "done")] public bool Done { get; set; }
+        [DataMember(Name = "files")] public List<string> Files { get; set; }
+    }
+
+    [DataContract]
+    public sealed class FiledFileDto
+    {
+        [DataMember(Name = "name")] public string Name { get; set; }
+        [DataMember(Name = "plan_id")] public string PlanId { get; set; }
+        [DataMember(Name = "plan_number")] public string PlanNumber { get; set; }
+        [DataMember(Name = "kind")] public string Kind { get; set; }
+        [DataMember(Name = "path")] public string Path { get; set; }
+        [DataMember(Name = "reason")] public string Reason { get; set; }
+        [DataMember(Name = "duplicate")] public bool Duplicate { get; set; }
+        [DataMember(Name = "in_library")] public bool InLibrary { get; set; }
+    }
+
+    [DataContract]
+    public sealed class UnidentifiedFileDto
+    {
+        [DataMember(Name = "name")] public string Name { get; set; }
+        [DataMember(Name = "reason")] public string Reason { get; set; }
+    }
+
+    [DataContract]
+    public sealed class AssistStatusDto
+    {
+        [DataMember(Name = "folder")] public string Folder { get; set; }
+        [DataMember(Name = "downloads_dir")] public string DownloadsDir { get; set; }
+        [DataMember(Name = "active")] public string Active { get; set; }
+        [DataMember(Name = "plans")] public List<AssistPlanDto> Plans { get; set; }
+        [DataMember(Name = "filed")] public List<FiledFileDto> Filed { get; set; }
+        [DataMember(Name = "unidentified")] public List<UnidentifiedFileDto> Unidentified { get; set; }
     }
 }

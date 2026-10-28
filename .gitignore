@@ -20,3 +20,6 @@ obj/
 # OS / editors
 .DS_Store
 Thumbs.db
+
+# Office plans library (default location; normally a shared folder)
+plans_library/

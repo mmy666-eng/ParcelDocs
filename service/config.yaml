@@ -37,6 +37,16 @@ citywide_plans: []
 disabled_sources:
   - bnei_brak
 
+# Office library of plan documents (one folder per plan number), checked before any
+# source and filled after every download. Set to the shared folder, e.g.
+# \\server\share\ParcelDocs\plans. Remove the line to turn the library off.
+plans_library: ../plans_library
+
+# Files downloaded by hand from mavat are picked up here (default: ~/Downloads).
+# downloads_dir: C:/Users/<user>/Downloads
+# Filed downloads move to a "ParcelDocs_תויק" subfolder; false leaves them in place.
+move_filed_downloads: true
+
 # Endpoints verified in docs/sources.md.
 sources:
   govmap_wfs: https://open.govmap.gov.il/geoserver/opendata/wfs
@@ -44,3 +54,6 @@ sources:
   complot_base: https://handasi.complot.co.il/magicscripts/mgrqispi.dll
   complot_site_id: 75
   complot_ws: https://handasi.complot.co.il/wsComplotPublicData/ComplotPublicData.asmx
+  # Israel Land Authority plan search (§3ה): plans by parcel or number, with PDFs.
+  rmi_api: https://apps.land.gov.il/TabaSearch/api
+  rmi_files: https://apps.land.gov.il

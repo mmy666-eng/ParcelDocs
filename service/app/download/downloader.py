@@ -13,7 +13,7 @@ import httpx
 
 from app.download.cache import CachedFile, DownloadCache
 from app.models import ManifestEntry
-from app.utils.filenames import long_path
+from app.utils.filenames import long_path, path_from_file_uri
 
 log = logging.getLogger(__name__)
 
@@ -80,8 +80,9 @@ class HttpClient:
         data: dict[str, str] | None = None,
         content: bytes | None = None,
         headers: dict[str, str] | None = None,
+        json: object | None = None,
     ) -> httpx.Response:
-        return self._request("POST", url, data=data, content=content, headers=headers)
+        return self._request("POST", url, data=data, content=content, headers=headers, json=json)
 
     def _request(self, method: str, url: str, **kwargs: object) -> httpx.Response:
         host = urlsplit(url).netloc
@@ -167,6 +168,8 @@ class Downloader:
 
     def download(self, url: str, dest: Path, source: str, root: Path) -> ManifestEntry:
         dest.parent.mkdir(parents=True, exist_ok=True)
+        if url.startswith("file:"):
+            return self._copy_local(url, dest, source, root)
         cached = self._cache.get(url)
         if cached is not None and self._is_intact(cached):
             if long_path(cached.path) != long_path(dest):
@@ -186,6 +189,17 @@ class Downloader:
         )
         log.info("downloaded: %s -> %s (%d bytes)", url, dest, len(content))
         return self._entry(dest, root, source, url, sha256, now, False)
+
+    def _copy_local(self, url: str, dest: Path, source: str, root: Path) -> ManifestEntry:
+        """A file from the office library: copied, never fetched over the network."""
+        path = long_path(path_from_file_uri(url))
+        if not path.is_file():
+            raise SourceError(f"library file missing: {path}")
+        if path != long_path(dest):
+            shutil.copyfile(path, long_path(dest))
+        sha256 = hashlib.sha256(long_path(dest).read_bytes()).hexdigest()
+        log.info("from library: %s -> %s", path, dest)
+        return self._entry(dest, root, source, url, sha256, datetime.now().astimezone(), True)
 
     @staticmethod
     def _is_intact(cached: CachedFile) -> bool:

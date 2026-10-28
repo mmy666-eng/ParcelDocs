@@ -73,15 +73,18 @@ namespace ParcelDocs.Plugin
             _items.Columns.Add("שם / תיאור");
             _items.Columns.Add("תאריך");
             _items.Columns.Add("מס' מסמכים");
+            _items.Columns.Add("מקור");
             _items.Columns.Add("הערה");
             foreach (var plan in result.Plans)
             {
-                AddItem(plan.Id, "תב\"ע", plan.Number, plan.Name, plan.ApprovalDate, plan.Documents, plan.ManualAction);
+                AddItem(plan.Id, "תב\"ע", plan.Number, plan.Name, plan.ApprovalDate, plan.Documents,
+                    SourceLabel(plan.DocumentsSource), plan.ManualAction);
             }
             foreach (var permit in result.Permits)
             {
                 AddItem(permit.Id, "היתר", permit.PermitNumber ?? permit.RequestNumber, permit.Description,
-                    permit.Date, permit.Documents, permit.ManualAction);
+                    permit.Date, permit.Documents, permit.Documents > 0 ? SourceLabel("bnei_brak") : "",
+                    permit.ManualAction);
             }
             FitColumns();
 
@@ -180,11 +183,25 @@ namespace ParcelDocs.Plugin
             name.Width = Math.Min(name.Width, MaxNameColumnWidth);
         }
 
-        private void AddItem(string id, string kind, string number, string name, string date, int documents, string note)
+        /// <summary>Where the documents come from, as the office calls it.</summary>
+        public static string SourceLabel(string source)
+        {
+            switch (source)
+            {
+                case "library": return "ספרייה";
+                case "rmi": return "רמ\"י";
+                case "bnei_brak": return "עירייה";
+                case "mavat": return "מבא\"ת";
+                default: return source ?? "";
+            }
+        }
+
+        private void AddItem(string id, string kind, string number, string name, string date, int documents,
+            string source, string note)
         {
             var item = new ListViewItem(new[]
             {
-                kind, number ?? "", name ?? "", date ?? "", documents.ToString(), note ?? "",
+                kind, number ?? "", name ?? "", date ?? "", documents.ToString(), source ?? "", note ?? "",
             })
             {
                 Tag = id,

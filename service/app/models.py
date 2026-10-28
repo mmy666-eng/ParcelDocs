@@ -34,6 +34,9 @@ class Document(BaseModel):
     kind: DocumentKind | None = None
     subject: str | None = None
     date: dt.date | None = None
+    # For a copy from the office library: where the file first came from.
+    origin_source: str | None = None
+    origin_url: str | None = None
 
 
 class Plan(BaseModel):
@@ -48,6 +51,8 @@ class Plan(BaseModel):
     source_id: str | None = None
     mavat_url: str | None = None
     documents: list[Document] = []
+    # Where the documents chosen for download come from (library / rmi / bnei_brak / mavat).
+    documents_source: str | None = None
     manual_action: str | None = None
 
 
@@ -75,3 +80,5 @@ class ManifestEntry(BaseModel):
     downloaded_at: dt.datetime
     sha256: str
     from_cache: bool = False
+    origin_source: str | None = None
+    origin_url: str | None = None

@@ -7,7 +7,9 @@ downloading. POST /download fetches the items the user kept and builds the folde
 import logging
 import threading
 from collections import OrderedDict
+from collections.abc import Callable
 from datetime import date
+from pathlib import Path
 from typing import Literal
 
 import uvicorn
@@ -15,11 +17,21 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from shapely.geometry import Polygon
 
-from app.config import Config, load_config
+from app.config import Config, downloads_dir, load_config
 from app.download.downloader import HttpClient, SourceError
 from app.geo.cadastre import CoordinatesOutOfRangeError
+from app.mavat_assist import AssistStatus, MavatAssist
 from app.models import Address
-from app.pipeline import CITY_SOURCE, NotFoundError, Pipeline, ResolveResult, permit_id, plan_id
+from app.pipeline import (
+    CITY_SOURCE,
+    RMI_SOURCE,
+    NotFoundError,
+    Pipeline,
+    ResolveResult,
+    make_library,
+    permit_id,
+    plan_id,
+)
 
 log = logging.getLogger("parceldocs")
 
@@ -48,6 +60,7 @@ class PlanOut(BaseModel):
     approval_date: date | None
     yalkut: str | None
     documents: int
+    documents_source: str | None
     manual_action: str | None
     mavat_url: str | None
 
@@ -84,14 +97,36 @@ class DownloadResponse(BaseModel):
     plans: int
     permits: int
     warnings: list[str]
+    # Downloaded plans still without instructions or a map (see /mavat/*).
+    mavat_pending: int
 
 
-def create_app(config: Config | None = None, http: HttpClient | None = None) -> FastAPI:
+class MavatStartRequest(BaseModel):
+    folder: str
+
+
+class MavatOpenRequest(BaseModel):
+    plan_id: str
+
+
+class MavatAssignRequest(BaseModel):
+    name: str
+    plan_id: str
+
+
+def create_app(
+    config: Config | None = None,
+    http: HttpClient | None = None,
+    opener: Callable[[str], None] | None = None,
+) -> FastAPI:
     config = config or load_config()
     pipeline = Pipeline(config, http)
     results: OrderedDict[str, ResolveResult] = OrderedDict()
     # One run at a time: the per-host rate limits and request budgets are per process.
     lock = threading.Lock()
+    # The mavat step: one project at a time. Each /mavat/status call also polls the
+    # downloads folder, so the plugin's refresh timer drives it.
+    assist: dict[str, MavatAssist] = {}
     app = FastAPI(title="ParcelDocs", version="0.1.0")
 
     @app.get("/health")
@@ -99,10 +134,13 @@ def create_app(config: Config | None = None, http: HttpClient | None = None) -> 
         disabled = set(config.disabled_sources)
         return {
             "status": "ok",
+            "output_dir": str(config.output_dir),
             "sources": {
                 "govmap": "enabled",
                 "iplan": "enabled",
+                RMI_SOURCE: "disabled" if RMI_SOURCE in disabled else "enabled",
                 CITY_SOURCE: "disabled" if CITY_SOURCE in disabled else "enabled",
+                "library": str(config.plans_library) if config.plans_library else "off",
             },
         }
 
@@ -143,9 +181,64 @@ def create_app(config: Config | None = None, http: HttpClient | None = None) -> 
             plans=downloaded.plans,
             permits=downloaded.permits,
             warnings=downloaded.warnings,
+            mavat_pending=len(downloaded.mavat_pending),
         )
 
+    @app.post("/mavat/start")
+    def mavat_start(request: MavatStartRequest) -> AssistStatus:
+        try:
+            assist["current"] = MavatAssist(
+                Path(request.folder),
+                downloads_dir(config),
+                make_library(config),
+                opener=opener,
+                move_filed=config.move_filed_downloads,
+            )
+        except FileNotFoundError as exc:
+            raise HTTPException(404, "בתיקייה אין 00_סיכום/manifest.json של ParcelDocs") from exc
+        return assist["current"].status()
+
+    @app.get("/mavat/status")
+    def mavat_status() -> AssistStatus:
+        current = _current(assist)
+        current.poll()
+        return current.status()
+
+    @app.post("/mavat/open")
+    def mavat_open(request: MavatOpenRequest) -> AssistStatus:
+        current = _current(assist)
+        try:
+            current.open(request.plan_id)
+        except KeyError as exc:
+            raise HTTPException(404, f"תכנית לא מוכרת: {request.plan_id}") from exc
+        except (ValueError, OSError) as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return current.status()
+
+    @app.post("/mavat/assign")
+    def mavat_assign(request: MavatAssignRequest) -> AssistStatus:
+        current = _current(assist)
+        try:
+            current.assign(request.name, request.plan_id)
+        except (KeyError, FileNotFoundError) as exc:
+            raise HTTPException(404, f"לא נמצא: {exc}") from exc
+        return current.status()
+
+    @app.post("/mavat/stop")
+    def mavat_stop() -> AssistStatus:
+        current = _current(assist)
+        current.poll()
+        del assist["current"]
+        return current.status()
+
     return app
+
+
+def _current(assist: dict[str, MavatAssist]) -> MavatAssist:
+    current = assist.get("current")
+    if current is None:
+        raise HTTPException(404, 'עוזר מבא"ת לא פעיל – יש להתחיל עם /mavat/start')
+    return current
 
 
 def _resolve_response(result: ResolveResult) -> ResolveResponse:
@@ -164,6 +257,7 @@ def _resolve_response(result: ResolveResult) -> ResolveResponse:
                 approval_date=p.approval_date,
                 yalkut=p.yalkut,
                 documents=len(result.plan_documents.get(plan_id(p), [])),
+                documents_source=p.documents_source,
                 manual_action=p.manual_action,
                 mavat_url=p.mavat_url,
             )

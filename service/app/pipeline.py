@@ -2,6 +2,11 @@
 
 resolve finds parcels, approved plans and granted permits without downloading;
 download fetches the documents of the items the user kept and builds the folder.
+
+Plan names come from iplan, the Israel Land Authority (rmi) and the city system.
+Plan documents are taken from the first of: the office library (when it has both the
+instructions and a map), rmi, the city system, a partial library entry. Plans with
+none of these are left for the semi-automatic mavat step (app.mavat_assist).
 """
 
 import logging
@@ -20,7 +25,8 @@ from app.config import Config
 from app.download.cache import DownloadCache
 from app.download.downloader import Downloader, HttpClient, SourceError
 from app.geo.cadastre import GovMapCadastre, check_itm, parcel_geometry
-from app.models import Address, Document, ManifestEntry, Parcel, Permit, Plan
+from app.models import Address, Document, DocumentKind, ManifestEntry, Parcel, Permit, Plan
+from app.output.library import LIBRARY_SOURCE, LibraryError, PlansLibrary
 from app.output.organizer import OutputOrganizer
 from app.providers.bnei_brak import (
     BneiBrakPermitsProvider,
@@ -28,14 +34,17 @@ from app.providers.bnei_brak import (
     ComplotClient,
     GushFile,
     is_granted,
+    select_documents,
 )
 from app.providers.iplan import IplanPlansProvider
+from app.providers.rmi import SOURCE as RMI_SOURCE
+from app.providers.rmi import RmiPlansProvider
 
 log = logging.getLogger("parceldocs")
 
-MANUAL_MAVAT = 'אין עותק במערכת העירונית – להוריד ידנית ממבא"ת'
+MANUAL_MAVAT = 'אין עותק בספרייה, ברמ"י או במערכת העירונית – להוריד ממבא"ת (עוזר מבא"ת)'
 MANUAL_NO_DOCUMENTS = "לא נמצאו הוראות או תשריט סרוקים – לפנות לוועדה"
-MANUAL_CITY_UNAVAILABLE = 'המערכת העירונית לא זמינה – להוריד ידנית ממבא"ת או מאתר העירייה'
+MANUAL_CITY_UNAVAILABLE = 'המערכת העירונית לא זמינה – להוריד ממבא"ת (עוזר מבא"ת) או מאתר העירייה'
 MANUAL_NOT_SCANNED = "לא סרוק – לפנות לארכיון"
 
 CITY_SOURCE = "bnei_brak"
@@ -46,9 +55,15 @@ CITY_DISABLED = (
 CITY_UNAVAILABLE = 'המערכת העירונית (Complot) לא זמינה – כתובות, תב"עות עירוניות ומסמכים לא נבדקו'
 PERMITS_NOT_CHECKED = "היתרי בנייה לא נבדקו – המערכת העירונית לא זמינה"
 IPLAN_UNAVAILABLE = "מנהל התכנון (iplan) לא זמין – תכניות לפי מיקום לא נבדקו"
+RMI_UNAVAILABLE = 'רמ"י (איתור תוכניות) לא זמין – תכניות ומסמכים ממנו לא נבדקו'
+LIBRARY_UNAVAILABLE = "הספרייה המשרדית לא זמינה"
+
+CORE_KINDS = (DocumentKind.INSTRUCTIONS, DocumentKind.MAP)
 
 _NATIONAL_NUMBER = re.compile(r"\d{3}-\d{7}")
 _LOCAL_NUMBER = re.compile(r"(?:בב/)?((?:מק/)?\d+(?:/[֐-׿\d]+)+)")
+_CITY_PREFIX = re.compile(r"^בב\s*/\s*")
+_NOT_KEY_CHARS = re.compile(r"[\W_]+")
 
 
 class NotFoundError(ValueError):
@@ -76,6 +91,8 @@ class DownloadResult(BaseModel):
     warnings: list[str]
     plans: int
     permits: int
+    # Selected plans still without instructions or a map: candidates for mavat.
+    mavat_pending: list[str] = []
 
 
 def plan_id(plan: Plan) -> str:
@@ -94,10 +111,19 @@ def plan_keys(plan: Plan) -> tuple[set[str], set[str]]:
     return national, local
 
 
-def merge_plans(
-    iplan_plans: list[Plan], city_plans: list[Plan], unmatched_action: str = MANUAL_MAVAT
-) -> list[Plan]:
-    """Join the two sources. City plans carry the documents; iplan adds type and mavat link.
+def is_national_number(number: str) -> bool:
+    return _NATIONAL_NUMBER.fullmatch(number.strip()) is not None
+
+
+def local_key(number: str) -> str | None:
+    """Comparable form of a local plan number: rmi "בב/105א" and Complot "105/א" → "105א"."""
+    if is_national_number(number):
+        return None
+    return _NOT_KEY_CHARS.sub("", _CITY_PREFIX.sub("", number.strip())) or None
+
+
+def merge_plans(iplan_plans: list[Plan], city_plans: list[Plan]) -> list[Plan]:
+    """Join iplan and the city system. City plans carry documents; iplan adds type and mavat.
 
     An iplan plan matches a city plan when its national number appears in the city
     plan's number or name, or when the city plan's local number appears in its name.
@@ -117,7 +143,7 @@ def merge_plans(
                     match = index
                     break
         if match is None:
-            merged.append(iplan_plan.model_copy(update={"manual_action": unmatched_action}))
+            merged.append(iplan_plan.model_copy(deep=True))
             continue
         city = merged[match]
         if city.number != iplan_plan.number:
@@ -128,6 +154,72 @@ def merge_plans(
         city.approval_date = city.approval_date or iplan_plan.approval_date
         city.mavat_url = iplan_plan.mavat_url
     return merged
+
+
+def merge_rmi(plans: list[Plan], rmi_plans: list[Plan]) -> list[Plan]:
+    """Add the Israel Land Authority's plans: their documents join a matching plan, and
+    plans no other source knows (often old local plans) are added as they are."""
+    merged = [plan.model_copy(deep=True) for plan in plans]
+    for rmi_plan in rmi_plans:
+        index = _match_rmi(merged, rmi_plan)
+        if index is None:
+            merged.append(rmi_plan.model_copy(deep=True))
+            continue
+        plan = merged[index]
+        if RMI_SOURCE in plan.source.split("+"):
+            continue
+        if rmi_plan.number != plan.number and rmi_plan.number not in plan.aliases:
+            plan.aliases = [*plan.aliases, rmi_plan.number]
+        plan.source = f"{plan.source}+{RMI_SOURCE}"
+        plan.approval_date = plan.approval_date or rmi_plan.approval_date
+        plan.name = plan.name or rmi_plan.name
+        plan.documents = [*plan.documents, *rmi_plan.documents]
+    return merged
+
+
+def _match_rmi(plans: list[Plan], rmi_plan: Plan) -> int | None:
+    number = rmi_plan.number
+    if is_national_number(number):
+        for index, plan in enumerate(plans):
+            if number == plan.number or number in plan.aliases:
+                return index
+        # A city plan that only mentions the national number in its name.
+        for index, plan in enumerate(plans):
+            if not is_national_number(plan.number) and number in plan_keys(plan)[0]:
+                return index
+        return None
+    key = local_key(number)
+    for index, plan in enumerate(plans):
+        if key and key in {local_key(n) for n in [plan.number, *plan.aliases]}:
+            return index
+    return None
+
+
+def has_core_documents(documents: list[Document]) -> bool:
+    kinds = {d.kind for d in documents}
+    return all(kind in kinds for kind in CORE_KINDS)
+
+
+def choose_documents(plan: Plan, library_documents: list[Document]) -> tuple[list[Document], str]:
+    """The documents to download and where they come from; ([], "") when there are none.
+
+    Order: a complete library entry, rmi, the city system (approved versions), and a
+    partial library entry. A source with instructions or a map beats one with only
+    appendices.
+    """
+    candidates = [
+        (library_documents if has_core_documents(library_documents) else [], LIBRARY_SOURCE),
+        ([d for d in plan.documents if d.source == RMI_SOURCE], RMI_SOURCE),
+        (select_documents([d for d in plan.documents if d.source == CITY_SOURCE]), CITY_SOURCE),
+        (library_documents, LIBRARY_SOURCE),
+    ]
+    for documents, source in candidates:
+        if any(d.kind in CORE_KINDS for d in documents):
+            return documents, source
+    for documents, source in candidates:
+        if documents:
+            return documents, source
+    return [], ""
 
 
 def collect_permits(
@@ -187,7 +279,7 @@ class _RunLog(logging.Handler):
 
 
 @contextmanager
-def _capture_log() -> Iterator[_RunLog]:
+def capture_log() -> Iterator[_RunLog]:
     handler = _RunLog()
     previous = log.level
     log.addHandler(handler)
@@ -214,6 +306,10 @@ def make_http(config: Config) -> HttpClient:
     )
 
 
+def make_library(config: Config) -> PlansLibrary | None:
+    return PlansLibrary(config.plans_library) if config.plans_library else None
+
+
 class Pipeline:
     def __init__(self, config: Config, http: HttpClient | None = None) -> None:
         self.config = config
@@ -226,10 +322,12 @@ class Pipeline:
         self.city_plans = BneiBrakPlansProvider(complot, self.cadastre, config.citywide_plans)
         self.city_permits = BneiBrakPermitsProvider(complot)
         self.iplan = IplanPlansProvider(self.http, sources.iplan_plans_layer)
+        self.rmi = RmiPlansProvider(self.http, sources.rmi_api, sources.rmi_files)
+        self.library = make_library(config)
 
     def resolve_parcel(self, gush: int, helka: int) -> ResolveResult:
         self.http.start_run()
-        with _capture_log() as run_log:
+        with capture_log() as run_log:
             log.info("resolve parcel %d/%d", gush, helka)
             parcel = self.cadastre.get_parcel(gush, helka)
             geometry = parcel_geometry(parcel) if parcel else None
@@ -247,7 +345,7 @@ class Pipeline:
     def resolve_polygon(self, polygon: BaseGeometry) -> ResolveResult:
         check_itm(polygon)
         self.http.start_run()
-        with _capture_log() as run_log:
+        with capture_log() as run_log:
             log.info("resolve polygon with %d vertices", len(polygon.exterior.coords) - 1)
             found = self.cadastre.find_by_polygon(polygon, self.config.parcel_buffer_m)
             if not found:
@@ -326,17 +424,17 @@ class Pipeline:
                 log.error("Complot unavailable: %s", exc)
                 warnings.append(f"{CITY_UNAVAILABLE}: {exc}")
                 city_available = False
-        plans = merge_plans(
-            iplan_plans, city_plans, MANUAL_MAVAT if city_available else MANUAL_CITY_UNAVAILABLE
-        )
-        plan_documents: dict[str, list[Document]] = {}
-        for plan in plans:
-            if plan.manual_action:
-                continue
-            selected = self.city_plans.get_documents(plan)
-            if not selected:
-                plan.manual_action = MANUAL_NO_DOCUMENTS
-            plan_documents[plan_id(plan)] = selected
+        plans = merge_plans(iplan_plans, city_plans)
+
+        if RMI_SOURCE not in self.config.disabled_sources:
+            try:
+                rmi_parcels = list(dict.fromkeys([*requested, *unique]))
+                plans = merge_rmi(plans, self._rmi_plans(rmi_parcels, plans))
+            except SourceError as exc:
+                log.error("rmi unavailable: %s", exc)
+                warnings.append(f"{RMI_UNAVAILABLE}: {exc}")
+
+        plan_documents = self._plan_documents(plans, city_available, warnings)
 
         permits: list[Permit] = []
         if city_available:
@@ -363,6 +461,51 @@ class Pipeline:
             warnings=warnings,
         )
 
+    def _rmi_plans(self, parcels: list[tuple[int, int]], known: list[Plan]) -> list[Plan]:
+        """rmi plans by parcel, plus a lookup by number for national-numbered plans that
+        other sources found but rmi did not link to these parcels."""
+        found: dict[str, Plan] = {}
+        for gush, helka in parcels:
+            for plan in self.rmi.find_by_parcel(gush, helka):
+                found.setdefault(plan.source_id or plan.number, plan)
+        numbers = {p.number for p in found.values()}
+        for plan in known:
+            if is_national_number(plan.number) and plan.number not in numbers:
+                for extra in self.rmi.find_by_number(plan.number):
+                    found.setdefault(extra.source_id or extra.number, extra)
+        return list(found.values())
+
+    def _plan_documents(
+        self, plans: list[Plan], city_available: bool, warnings: list[str]
+    ) -> dict[str, list[Document]]:
+        library = self.library
+        plan_documents: dict[str, list[Document]] = {}
+        for plan in plans:
+            library_documents: list[Document] = []
+            if library is not None:
+                try:
+                    library_documents = library.documents(plan)
+                except LibraryError as exc:
+                    log.error("library unavailable: %s", exc)
+                    warnings.append(f"{LIBRARY_UNAVAILABLE}: {exc}")
+                    library = None
+            documents, source = choose_documents(plan, library_documents)
+            plan.documents_source = source or None
+            if not documents:
+                if not city_available:
+                    plan.manual_action = MANUAL_CITY_UNAVAILABLE
+                elif plan.mavat_url:
+                    plan.manual_action = MANUAL_MAVAT
+                else:
+                    plan.manual_action = MANUAL_NO_DOCUMENTS
+                continue
+            plan_documents[plan_id(plan)] = documents
+            missing = [k.value for k in CORE_KINDS if all(d.kind != k for d in documents)]
+            if missing:
+                warnings.append(f'תכנית {plan.number}: חסרים {", ".join(missing)} – להשלים ממבא"ת')
+            log.info("plan %s: %d documents from %s", plan.number, len(documents), source)
+        return plan_documents
+
     def organizer(self, result: ResolveResult, project: str, today: date | None) -> OutputOrganizer:
         return OutputOrganizer(
             self.config.output_dir, project, result.gush, result.helka, today or date.today()
@@ -378,7 +521,7 @@ class Pipeline:
         """Download the documents of the selected item ids (all items when None)."""
         organizer = self.organizer(result, project, today)
         organizer.create()
-        with _capture_log() as run_log:
+        with capture_log() as run_log:
             log.info("download: project=%s selected=%s", project, sorted(selected or []) or "all")
             downloaded = self._download(result, organizer, project, selected)
         organizer.write_log([*result.log, *run_log.lines])
@@ -395,33 +538,61 @@ class Pipeline:
         permits = [p for p in result.permits if selected is None or permit_id(p) in selected]
         warnings = list(result.warnings)
 
-        downloads: list[tuple[str, Document, Path]] = []
+        downloads: list[tuple[str, Plan | None, Document, Path]] = []
         for plan in plans:
             documents = result.plan_documents.get(plan_id(plan), [])
             paths = organizer.document_paths(plan, documents)
             downloads.extend(
-                (plan.number, doc, path) for doc, path in zip(documents, paths, strict=True)
+                (plan.number, plan, doc, path) for doc, path in zip(documents, paths, strict=True)
             )
         for permit in permits:
             documents = result.permit_documents.get(permit_id(permit), [])
             paths = organizer.permit_document_paths(permit, documents)
             label = f"היתר {permit.permit_number or permit.request_number}"
-            downloads.extend((label, doc, path) for doc, path in zip(documents, paths, strict=True))
+            downloads.extend(
+                (label, None, doc, path) for doc, path in zip(documents, paths, strict=True)
+            )
 
         files: list[ManifestEntry] = []
+        done: dict[str, list[tuple[Document, Path]]] = {}
         cache = DownloadCache(self.config.cache_db)
         downloader = Downloader(self.http, cache)
         try:
-            for label, doc, path in downloads:
+            for label, plan, doc, path in downloads:
                 try:
-                    files.append(downloader.download(doc.url, path, doc.source, organizer.root))
+                    entry = downloader.download(doc.url, path, doc.source, organizer.root)
                 except SourceError as exc:
                     log.error("download failed: %s", exc)
                     warnings.append(f"הורדה נכשלה: {label} – {doc.title}")
+                    continue
+                entry.origin_source = doc.origin_source
+                entry.origin_url = doc.origin_url
+                files.append(entry)
+                if plan is not None:
+                    done.setdefault(plan_id(plan), []).append((doc, path))
         finally:
             cache.close()
+
+        self._add_to_library(plans, done, organizer, warnings)
+        pending = [
+            plan_id(p)
+            for p in plans
+            if not has_core_documents([doc for doc, _ in done.get(plan_id(p), [])])
+        ]
+        # The manifest lists, per plan, the documents chosen for it (not every candidate).
+        manifest_plans = [
+            p.model_copy(update={"documents": result.plan_documents.get(plan_id(p), [])})
+            for p in plans
+        ]
         organizer.write_manifest(
-            project, result.gush, result.helka, result.parcels, plans, files, warnings, permits
+            project,
+            result.gush,
+            result.helka,
+            result.parcels,
+            manifest_plans,
+            files,
+            warnings,
+            permits,
         )
         if result.polygon_wkt:
             organizer.write_polygon_dxf(result.polygon_wkt, result.parcels)
@@ -432,4 +603,30 @@ class Pipeline:
             warnings=warnings,
             plans=len(plans),
             permits=len(permits),
+            mavat_pending=pending,
         )
+
+    def _add_to_library(
+        self,
+        plans: list[Plan],
+        done: dict[str, list[tuple[Document, Path]]],
+        organizer: OutputOrganizer,
+        warnings: list[str],
+    ) -> None:
+        """Files that came from a source (not from the library itself) go into the library."""
+        if self.library is None:
+            return
+        for plan in plans:
+            new = [
+                (doc, path, path.relative_to(organizer.plan_dir(plan)).as_posix())
+                for doc, path in done.get(plan_id(plan), [])
+                if doc.source != LIBRARY_SOURCE
+            ]
+            if not new:
+                continue
+            try:
+                self.library.add(plan, new)
+            except (LibraryError, OSError) as exc:
+                log.error("library: cannot add plan %s: %s", plan.number, exc)
+                warnings.append(f"{LIBRARY_UNAVAILABLE} – תכנית {plan.number} לא נשמרה בה")
+                return

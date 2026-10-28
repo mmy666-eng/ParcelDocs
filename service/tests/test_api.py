@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from tests.conftest import offline_http
+from tests.conftest import make_pdf, offline_http
 from tests.test_cli import _config, _handler
 
 PARCEL_443 = [
@@ -94,3 +94,45 @@ def test_download_unknown_result_or_item(tmp_path: Path):
         json={"resolve_id": body["resolve_id"], "project": "p", "selected": ["plan:nope"]},
     )
     assert bad.status_code == 400
+
+
+def test_mavat_step_files_manual_downloads(tmp_path: Path):
+    config = _config(tmp_path, ["bnei_brak"])
+    config.downloads_dir = tmp_path / "Downloads"
+    config.downloads_dir.mkdir()
+    config.plans_library = tmp_path / "library"
+    opened: list[str] = []
+    client = TestClient(create_app(config, offline_http(_handler([])), opener=opened.append))
+    body = client.post("/resolve", json={"vertices": PARCEL_443}).json()
+    plans = {p["number"]: p for p in body["plans"]}
+    assert plans["501-0873794"]["documents_source"] == "rmi"
+    assert plans["501-0175646"]["documents"] == 0
+    selected = [plans["501-0873794"]["id"], plans["501-0175646"]["id"]]
+    downloaded = client.post(
+        "/download",
+        json={"resolve_id": body["resolve_id"], "project": "בדיקה", "selected": selected},
+    ).json()
+    assert downloaded["mavat_pending"] == 1
+
+    status = client.post("/mavat/start", json={"folder": downloaded["folder"]}).json()
+    assert {p["number"]: p["done"] for p in status["plans"]} == {
+        "501-0873794": True,
+        "501-0175646": False,
+    }
+    client.post("/mavat/open", json={"plan_id": plans["501-0175646"]["id"]})
+    assert opened == [plans["501-0175646"]["mavat_url"]]
+    (config.downloads_dir / "תקנון 501-0175646.pdf").write_bytes(make_pdf("a"))
+    (config.downloads_dir / "1234.pdf").write_bytes(make_pdf("Plan 501-0175646", 3370, 2384))
+    client.get("/mavat/status")
+    status = client.get("/mavat/status").json()
+
+    assert sorted(f["kind"] for f in status["filed"]) == ["הוראות", "תשריט"]
+    assert all(p["done"] for p in status["plans"])
+    assert client.post("/mavat/stop").status_code == 200
+    assert client.get("/mavat/status").status_code == 404
+    assert (tmp_path / "library" / "501-0175646" / "הוראות.pdf").is_file()
+
+
+def test_mavat_start_needs_a_project_folder(tmp_path: Path):
+    client, _ = _client(tmp_path, ["bnei_brak"])
+    assert client.post("/mavat/start", json={"folder": str(tmp_path)}).status_code == 404

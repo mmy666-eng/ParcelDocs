@@ -32,6 +32,7 @@ def run(
         return 2
     folder = None
     files = cached = 0
+    pending = 0
     warnings = result.warnings
     if not dry_run:
         # The pipeline writes 99_לוג/run.log, covering both resolve and download.
@@ -39,8 +40,15 @@ def run(
         folder, warnings = downloaded.folder, downloaded.warnings
         files = len(downloaded.files)
         cached = sum(1 for f in downloaded.files if f.from_cache)
+        pending = len(downloaded.mavat_pending)
     _print_summary(result, warnings, folder, files, cached)
+    if pending:
+        print(f'\n{pending} תכניות בלי הוראות או תשריט. להשלמה ממבא"ת (הורדה ידנית בדפדפן):')
+        print(f'  .venv\\Scripts\\python -m app.mavat_assist --folder "{folder}"')
     return 0
+
+
+SOURCE_LABELS = {"library": "ספרייה", "rmi": 'רמ"י', "bnei_brak": "עירייה", "mavat": 'מבא"ת'}
 
 
 def _print_summary(
@@ -53,7 +61,8 @@ def _print_summary(
     for plan in result.plans:
         when = plan.approval_date.isoformat() if plan.approval_date else "-"
         docs = len(result.plan_documents.get(plan_id(plan), []))
-        note = f"  ⚠ {plan.manual_action}" if plan.manual_action else f"  {docs} מסמכים"
+        source = SOURCE_LABELS.get(plan.documents_source or "", plan.documents_source)
+        note = f"  ⚠ {plan.manual_action}" if plan.manual_action else f"  {docs} מסמכים ({source})"
         print(f"  {plan.number:<16} {when}  {plan.name[:50]}{note}")
     print(f"\nהיתרי בנייה ({len(result.permits)}):")
     for permit in result.permits:

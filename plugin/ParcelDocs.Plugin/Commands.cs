@@ -105,12 +105,88 @@ namespace ParcelDocs.Plugin
                 }
                 string folder = Path.GetFullPath(downloaded.Folder)
                     .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                if (ShowMessage(summary + "\n\nלפתוח את התיקייה?", MessageBoxIcon.Information,
-                        MessageBoxButtons.YesNo) == DialogResult.Yes && Directory.Exists(folder))
+                if (downloaded.MavatPending > 0)
                 {
-                    // Shell-open the project folder itself rather than passing it to explorer.exe.
-                    Process.Start(new ProcessStartInfo { FileName = folder, UseShellExecute = true, Verb = "open" });
+                    string question = summary +
+                        $"\n\nל-{downloaded.MavatPending} תכניות אין הוראות או תשריט." +
+                        "\nלפתוח את עוזר מבא\"ת? (ההורדה עצמה נעשית ידנית בדפדפן)";
+                    if (ShowMessage(question, MessageBoxIcon.Question, MessageBoxButtons.YesNo) == DialogResult.Yes)
+                    {
+                        RunMavatAssist(service, folder);
+                        return;
+                    }
                 }
+                if (ShowMessage(summary + "\n\nלפתוח את התיקייה?", MessageBoxIcon.Information,
+                        MessageBoxButtons.YesNo) == DialogResult.Yes)
+                {
+                    OpenFolder(folder);
+                }
+            }
+        }
+
+        /// <summary>Completing plan documents from mavat for an existing project folder.</summary>
+        [CommandMethod("PARCELDOCS_MAVAT", CommandFlags.Modal)]
+        public void ParcelDocsMavat()
+        {
+            using (var service = new ServiceClient())
+            {
+                if (!service.IsRunning())
+                {
+                    ShowMessage(ServiceNotRunning, MessageBoxIcon.Error);
+                    return;
+                }
+                string start = null;
+                try
+                {
+                    start = service.Health().OutputDir;
+                }
+                catch (System.Exception ex) when (ex is ServiceException || ex is System.Net.Http.HttpRequestException)
+                {
+                    // Without the output folder the dialog just starts elsewhere.
+                }
+                using (var dialog = new FolderBrowserDialog
+                {
+                    Description = "בחר תיקיית פרויקט של ParcelDocs",
+                    ShowNewFolderButton = false,
+                })
+                {
+                    if (!string.IsNullOrEmpty(start) && Directory.Exists(start))
+                    {
+                        dialog.SelectedPath = start;
+                    }
+                    if (dialog.ShowDialog() != DialogResult.OK)
+                    {
+                        return;
+                    }
+                    RunMavatAssist(service, dialog.SelectedPath);
+                }
+            }
+        }
+
+        private static void RunMavatAssist(ServiceClient service, string folder)
+        {
+            AssistStatusDto status;
+            try
+            {
+                status = service.MavatStart(folder);
+            }
+            catch (System.Exception ex) when (ex is ServiceException || ex is System.Net.Http.HttpRequestException)
+            {
+                ShowMessage("לא ניתן לפתוח את עוזר מבא\"ת:\n" + ex.Message, MessageBoxIcon.Error);
+                return;
+            }
+            using (var form = new MavatAssistForm(service, status))
+            {
+                CadApp.ShowModalDialog(form);
+            }
+        }
+
+        private static void OpenFolder(string folder)
+        {
+            if (Directory.Exists(folder))
+            {
+                // Shell-open the project folder itself rather than passing it to explorer.exe.
+                Process.Start(new ProcessStartInfo { FileName = folder, UseShellExecute = true, Verb = "open" });
             }
         }
 

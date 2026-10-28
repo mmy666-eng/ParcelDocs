@@ -21,6 +21,8 @@ ParcelDocs: פוליליין סגור ב-AutoCAD/ZWCAD (ITM, EPSG:2039) ← זי
 ## מקורות ורשת
 - **אסור להמציא כתובות URL או נקודות קצה.** כל מקור צריך להיות מאומת ומתועד ב-`docs/sources.md`.
 - **לא לעקוף CAPTCHA, התחברות או תשלום.** פריט כזה מסומן "דורש פעולה ידנית".
+- מבא"ת: לא פונים אליו מהקוד ולא מפעילים דפדפן אוטומטית. מותר רק לפתוח את `mavat_url` בדפדפן של המשתמש, ולתייק קבצים שהמשתמש הוריד בעצמו (`app/mavat_assist.py`).
+- בסקריפטים זמניים: לא לקרוא לקובץ בשם של מודול סטנדרטי (למשל `inspect.py`), כי הוא מסתיר את המודול.
 - Rate limit: עד בקשה אחת בשנייה לכל מקור, עם User-Agent מזהה.
 - כל מקור נתונים מומש כ-Provider (`PlansProvider` / `PermitsProvider`, PRD §5.2). אין לוגיקה ספציפית לעירייה מחוץ ל-`providers/`.
 - כל Provider חדש מקבל בדיקות ב-`tests/` עם תגובות שמורות (fixtures). בזמן בדיקות אין פנייה לרשת.
@@ -45,8 +47,12 @@ ParcelDocs: פוליליין סגור ב-AutoCAD/ZWCAD (ITM, EPSG:2039) ← זי
 - עיצוב ובדיקת קוד: `.venv\Scripts\python -m ruff format app tests` ו-`.venv\Scripts\python -m ruff check app tests`
 - הרצה: `.venv\Scripts\python -m app.cli --gush 6123 --helka 443 --project "שם" [--dry-run]`
 - שירות: `.venv\Scripts\python -m app.main` (FastAPI על `127.0.0.1:8765` בלבד)
+- מבא"ת חצי-אוטומטי לפרויקט קיים: `.venv\Scripts\python -m app.mavat_assist --folder "<תיקיית פרויקט>"`
+- ספרייה משרדית: `plans_library` ב-`config.yaml` (ברירת מחדל `../plans_library`, להחליף בתיקייה המשותפת). תיקיית ההורדות: `downloads_dir` (ברירת מחדל `~/Downloads`).
+- מקורות שאפשר להשבית ב-`disabled_sources`: `bnei_brak`, `rmi`.
 
 מתוך `plugin/ParcelDocs.Plugin/` (.NET SDK 8, יעד net48):
 - בנייה ל-AutoCAD 2024: `dotnet build -c AutoCAD` → `bin\AutoCAD\net48\ParcelDocs.Plugin.dll`
-- טעינה ב-AutoCAD: `NETLOAD` על ה-DLL, ואז `PARCELDOCS`. השירות צריך לרוץ לפני כן.
+- טעינה ב-AutoCAD: `NETLOAD` על ה-DLL, ואז `PARCELDOCS` (או `PARCELDOCS_MAVAT` לפרויקט קיים). השירות צריך לרוץ לפני כן.
+- כש-AutoCAD פתוח עם ה-DLL הישן, ההעתקה ל-`bin` נכשלת. צריך לסגור את AutoCAD ולבנות שוב, כי DLL שנטען ב-NETLOAD לא מוחלף באותו סשן.
 - נתיב ה-DLL של AutoCAD: `C:\Program Files\Autodesk\AutoCAD 2024\` (אפשר לשנות עם `-p:AutoCADDir=...`). ההפניות הן `Private=False`, כלומר לא מועתקות לתיקיית הפלט.

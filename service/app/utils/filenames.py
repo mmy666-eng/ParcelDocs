@@ -3,6 +3,8 @@
 import os
 import re
 from pathlib import Path
+from urllib.parse import urlsplit
+from urllib.request import url2pathname
 
 _INVALID_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 _WHITESPACE = re.compile(r"\s+")
@@ -42,6 +44,15 @@ def _shorten(name: str, max_length: int) -> str:
     if dot and 0 < len(ext) <= 5:
         return stem[: max_length - len(ext) - 1].rstrip(" ._") + "." + ext
     return name[:max_length]
+
+
+def path_from_file_uri(uri: str) -> Path:
+    """file:///C:/x/y.pdf → C:\\x\\y.pdf; file://server/share/y.pdf → \\\\server\\share\\y.pdf."""
+    parts = urlsplit(uri)
+    path = url2pathname(parts.path)
+    if parts.netloc and parts.netloc != "localhost":
+        path = f"\\\\{parts.netloc}{path}" if os.name == "nt" else f"//{parts.netloc}{path}"
+    return Path(path)
 
 
 def long_path(path: Path) -> Path:
