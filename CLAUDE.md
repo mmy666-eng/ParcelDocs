@@ -7,7 +7,10 @@ ParcelDocs: פוליליין סגור ב-AutoCAD/ZWCAD (ITM, EPSG:2039) ← זי
 ## כללי עבודה
 - המסמך המחייב הוא `PRD.md`. לא לחרוג ממנו בלי לשאול.
 - לעבוד שלב אחד בכל פעם לפי PRD §8. לא לקפוץ קדימה.
-- לפני כל שלב: להציג תוכנית קצרה ולחכות לאישור.
+- לעבור בין שלבי סעיף 8 ב-PRD ברצף, בתנאי שכל הבדיקות בשלב הנוכחי עוברות.
+- בסוף כל שלב לעדכן את `docs/progress.md`: מה נעשה, מה נבדק, מה פתוח.
+- לעצור ולשאול רק אם: מקור חסום (התחברות/CAPTCHA/תשלום/חסימת IP), צריך החלטה שלא כתובה ב-PRD, או בדיקות נכשלות 3 פעמים ברצף.
+- אם מקור חסום: לסמן אותו "דורש פעולה ידנית" ב-`docs/sources.md` ולהמשיך לחלקים שלא תלויים בו.
 
 ## מבנה
 - `service/` — שירות Python 3.12 (FastAPI, פורט 8765) + CLI. המבנה הפנימי מוגדר ב-PRD §5.1.
@@ -36,4 +39,8 @@ ParcelDocs: פוליליין סגור ב-AutoCAD/ZWCAD (ITM, EPSG:2039) ← זי
 שלב 0 (מחקר מקורות) הושלם, ראו `docs/sources.md`. שלב 1 (תב"עות ב-CLI) אושר ובביצוע.
 
 ## פקודות
-<!-- build / test / run יתווספו כאן -->
+מתוך `service/` (Python 3.12, venv ב-`service/.venv`):
+- התקנה: `py -3.12 -m venv .venv` ואז `.venv\Scripts\python -m pip install -e ".[dev]"`
+- בדיקות: `.venv\Scripts\python -m pytest -q` (בלי רשת, fixtures ב-`tests/fixtures/`)
+- עיצוב ובדיקת קוד: `.venv\Scripts\python -m ruff format app tests` ו-`.venv\Scripts\python -m ruff check app tests`
+- הרצה: `.venv\Scripts\python -m app.cli --gush 6123 --helka 443 --project "שם" [--dry-run]`

@@ -1,0 +1,77 @@
+﻿<script>
+  $.getScript(siteBaseURL + 'handasi2016/Scripts/Complot/Gush/min/gush-list.min.js');
+</script>
+
+<div>
+    <h2 translatable-text>החלקה המבוקשת עברה פרצלציה (חלוקה מחדש)</h2>
+  <table class="table table-condensed">
+    <tbody>
+      <tr>
+        <td class="title" translatable-text>גוש</td>
+        <td>6123</td>
+      </tr>
+      <tr>
+        <td class="title" translatable-text>חלקה</td>
+        <td>443</td>
+      </tr>
+          </tbody>
+  </table>
+
+  <br />
+  <br />
+  <legend translatable-text>רשימת חלקות שמקורן בחלקה המבוקשת:</legend>
+  
+  
+  <br />
+  <table class="table table-hover" id="results-table">
+    <thead class="complot-thead">
+      <tr translatable-title translatable-bs-title data-toggle="tooltip" title="ניתן ללחוץ על מנת למיין לפי עמודה">
+        <th></th>
+        <th translatable-text>גוש</th>
+        <th translatable-text>חלקה</th>
+        <th translatable-text>מגרש</th>
+        <th class="hidden-on-mobile" translatable-text>תוכנית</th>
+        <th class="hidden-on-mobile" translatable-text>כתובת</th>
+        <th class="hidden-on-mobile" translatable-text>יעוד</th>
+        <th translatable-text>שטח</th>
+        <th class="hidden-on-mobile" translatable-text>הקצאה</th>
+      </tr>
+    </thead>
+    <tbody>
+            <tr>
+        <td>
+          <a href="javascript:getGush(6123,2518)"
+            ><span class="glyphicon glyphicon-new-window black-font-color"></span
+          ></a>
+        </td>
+        <td>6123</td>
+        <td>
+          <a href="javascript:getGush(6123,2518)">2518</a>
+        </td>
+        <td></td>
+        <td class="hidden-on-mobile"></td>
+        <td class="hidden-on-mobile">הבנים 3 בני ברק</td>
+        <td class="hidden-on-mobile">אזור מגורים ג</td>
+        <td>472</td>
+        <td class="hidden-on-mobile"></td>
+      </tr>
+            <tr>
+        <td>
+          <a href="javascript:getGush(6123,2519)"
+            ><span class="glyphicon glyphicon-new-window black-font-color"></span
+          ></a>
+        </td>
+        <td>6123</td>
+        <td>
+          <a href="javascript:getGush(6123,2519)">2519</a>
+        </td>
+        <td></td>
+        <td class="hidden-on-mobile"></td>
+        <td class="hidden-on-mobile">הבנים בני ברק</td>
+        <td class="hidden-on-mobile">דרך מוצעת</td>
+        <td>30</td>
+        <td class="hidden-on-mobile"></td>
+      </tr>
+          </tbody>
+  </table>
+  </div>

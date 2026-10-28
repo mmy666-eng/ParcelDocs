@@ -1,0 +1,898 @@
+﻿<style>
+  .btn-header:after {
+    font-family: 'Glyphicons Halflings';
+    content: '\e114';
+    float: left;
+    margin-right: 15px;
+  }
+
+  .btn-header.collapsed:after {
+    content: '\e079';
+  }
+
+  .btn-header,
+  .btn-header:hover,
+  .btn-header:focus {
+    border-radius: 0;
+    border-top: 1px solid black;
+    font-weight: bold;
+    font-size: 16px;
+    text-align: right;
+    width: 100%;
+  }
+
+  .spn {
+    padding-right: 3px;
+  }
+</style>
+
+<script>
+  $.getScript(siteBaseURL + 'handasi2016/Scripts/Complot/Gush/min/gush-result.min.js');
+</script>
+
+<div class="top-nav-bar" id="top-navbar-id">
+    <h2 translatable-text>פרטי חלקה</h2>
+  <hr />
+  <section>
+    <div class="row" id="result-title-div-id">
+      <div class="col-sm-6">
+        <div class="result-title top-navbar-info-desc" translatable-text>מספר גוש:</div>
+        <div class="top-navbar-info-desc">6123</div>
+      </div>
+      <div class="col-sm-6">
+        <div class="result-title top-navbar-info-desc" translatable-text>מספר חלקה:</div>
+        <div class="top-navbar-info-desc">2518</div>
+      </div>
+    </div>
+  </section>
+    <hr />
+  <div class="row hidden-xs" id="btn-group-row-id">
+    <div class="btn-group" style="width: 100%" id="btn-group-id" role="navigation" aria-label="קישור לאיזור בדף">
+      <input
+        translatable-value
+        role="link"
+        type="button"
+        class="btn btn-primary btn-responsive"
+        onclick="scrollToElement('#info-main')"
+        value="מידע כללי"
+      />
+      <input
+        translatable-value
+        role="link"
+        type="button"
+        class="btn btn-primary btn-responsive"
+        onclick="scrollToElement('#hatraot')"
+        value="התראות"
+      />
+      <input
+        translatable-value
+        role="link"
+        type="button"
+        class="btn btn-primary btn-responsive"
+        onclick="scrollToElement('#remarks')"
+        value="הערות"
+      />
+      <input
+        translatable-value
+        role="link"
+        type="button"
+        class="btn btn-primary btn-responsive"
+        onclick="scrollToElement('#addresses')"
+        value="כתובות"
+      />
+      <input
+        translatable-value
+        role="link"
+        type="button"
+        class="btn btn-primary btn-responsive"
+        onclick="scrollToElement('#plans')"
+        value="תוכניות"
+      />
+      <input
+        translatable-value
+        role="link"
+        type="button"
+        class="btn btn-primary btn-responsive"
+        onclick="scrollToElement('#rights')"
+        value="זכויות"
+      />
+    </div>
+  </div>
+</div>
+<!-- .top-nav-bar -->
+
+<nav class="navbar navbar-default navbar-fixed-top" id="sticky-nav-bar">
+  <div class="container-fluid row">
+    <div class="dropdown dropdown-pos">
+      <button
+        class="btn dropdown-toggle col-md-1 col-sm-1 col-xs-1 hidden-print"
+        id="dropdownMenu1"
+        data-toggle="dropdown"
+      >
+        <span class="glyphicon glyphicon-menu-hamburger"></span>
+        <span translatable-text>ניווט</span>
+      </button>
+            <div id="navbar-titles-id" class="hidden-xs">
+        <div class="col-md-2 col-sm-1 margin-top-navbar-info">
+          <h5 class="result-title" translatable-text>מספר גוש:</h5>
+        </div>
+        <div class="col-md-3 col-sm-3 margin-top-navbar-info">
+          <h5>6123</h5>
+        </div>
+        <div class="col-md-2 col-sm-1 margin-top-navbar-info">
+          <h5 class="result-title" translatable-text>מספר חלקה:</h5>
+        </div>
+        <div class="col-md-4 col-sm-3 margin-top-navbar-info">
+          <h5>2518</h5>
+        </div>
+      </div>
+      
+      <div class="visible-xs" id="navbar-xs-id">
+        <div class="result-title">
+                    <h2>
+            <span translatable-text>גוש:</span>
+            6123
+            <span translatable-text>חלקה:</span>
+            2518
+          </h2>
+                  </div>
+      </div>
+
+      <ul class="dropdown-menu" id="dropdown-menu-nav-id" aria-labelledby="dropdownMenu1">
+        <li>
+          <input
+            translatable-value
+            role="link"
+            type="button"
+            class="btn li-max-width"
+            onclick="scrollToElement('#info-main')"
+            value="מידע כללי"
+          />
+        </li>
+        <li>
+          <input
+            translatable-value
+            role="link"
+            type="button"
+            class="btn li-max-width"
+            onclick="scrollToElement('#hatraot')"
+            value="התראות"
+          />
+        </li>
+        <li>
+          <input
+            translatable-value
+            role="link"
+            type="button"
+            class="btn li-max-width"
+            onclick="scrollToElement('#remarks')"
+            value="הערות"
+          />
+        </li>
+        <li>
+          <input
+            translatable-value
+            role="link"
+            type="button"
+            class="btn li-max-width"
+            onclick="scrollToElement('#addresses')"
+            value="כתובות"
+          />
+        </li>
+        <li>
+          <input
+            translatable-value
+            role="link"
+            type="button"
+            class="btn li-max-width"
+            onclick="scrollToElement('#plans')"
+            value="תוכניות"
+          />
+        </li>
+        <li>
+          <input
+            translatable-value
+            role="link"
+            type="button"
+            class="btn li-max-width"
+            onclick="scrollToElement('#rights')"
+            value="זכויות"
+          />
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="row" id="info-main" tabindex="-1">
+  <div>
+    <h3 class="result-title result-title-bottom" translatable-text>מידע כללי</h3>
+  </div>
+
+  <table class="table table-condensed" role="presentation">
+    <tbody>
+            <tr>
+        <td class="title" translatable-text>מספר גוש</td>
+        <td>6123</td>
+      </tr>
+      <tr>
+        <td class="title" translatable-text>מספר חלקה</td>
+        <td>2518</td>
+      </tr>
+            <tr>
+        <td class="title" translatable-text>מגרש</td>
+        <td>
+          
+          
+        </td>
+      </tr>
+      <tr>
+        <td class="title" translatable-text>יעוד</td>
+        <td>
+          אזור מגורים ג
+          (מתוכנית 181)
+        </td>
+      </tr>
+      <tr>
+        <td class="title" translatable-text>שטח</td>
+        <td>כ-     472 מ"ר (השטח מחושב ומתואם גרפית)</td>
+      </tr>
+      <tr>
+        <td class="title" translatable-text>קישור למידע נוסף</td>
+        <td>
+          <a href="javascript:getUnified(6123,2518)">
+            <span class="glyphicon glyphicon-record"></span> <span translatable-text>צפייה</span>
+          </a>
+        </td>
+      </tr>
+
+            <tr>
+        <td class="title" translatable-text>קישור לאתר הגיאוגרפי</td>
+        <td>
+          <a href="https://v5.gis-net.co.il/v5api/Home/Focus?Customer=6100&FocusType=3&Where=6123,2518&AnswerType=1" target="_blank">
+            <span class="glyphicon glyphicon-map-marker"></span> <span translatable-text>התמקדות</span>
+          </a>
+        </td>
+      </tr>
+      
+          </tbody>
+  </table>
+</div>
+
+<div class="row" id="hatraot" tabindex="-1">
+  <div>
+    <h3 class="result-title result-title-bottom" translatable-text>התראות לחלקה</h3>
+  </div>
+  <table class="table table-condensed" role="presentation">
+    <tbody>
+            <tr>
+        <td translatable-text>לא נמצאו נתונים</td>
+      </tr>
+          </tbody>
+  </table>
+</div>
+
+<div class="row" id="remarks" tabindex="-1">
+  <div>
+    <h3 class="result-title result-title-bottom" translatable-text>הערות לחלקה</h3>
+  </div>
+  <table class="table table-condensed" role="presentation">
+    <tbody>
+                  <tr>
+        <td>‏בישיבה מסי 3 של מליאת הועדה המקומית לתכנון ולבנייה מיום י"ג בתמוז התשע</td>
+      </tr>
+            <tr>
+        <td>‏(30.6.2015) הוחלט, עפ"י תקנה 13 לתקנות חישוב שטחים ואחוזי בנייה, כדלהל</td>
+      </tr>
+            <tr>
+        <td>‏"בבניינים המיועדים למגורים המצויים בתחום תכנית המתאר בב/105/ב תאשר</td>
+      </tr>
+            <tr>
+        <td>‏ועדת המשנה תוספת שטחי שירות לשטחים אשר היעוד והשימוש בהם עפ"י היתרי</td>
+      </tr>
+            <tr>
+        <td>‏הבנייה הוא לחדרי מדרגות,בנוסף אחוזי הבנייה מותרים בשיעור של עד 8 מ"ר</td>
+      </tr>
+            <tr>
+        <td>‏ לכל יח"ד ולא פחות מ - 16 מ"ר לכל קומה".</td>
+      </tr>
+            <tr>
+        <td>‏ניתן לעיין בהחלטה במלואה באגף ההנדסה בשעות קבלת הקהל המקובלות.</td>
+      </tr>
+            <tr>
+        <td>‏שטחי שירות בבניינים ציבוריים:</td>
+      </tr>
+            <tr>
+        <td>‏בישיבה מס' 2 של מליאת הוועדה המקומית לתכנון ולבניה מיום שלישי, י"ז בכסלו תשע"ח</td>
+      </tr>
+            <tr>
+        <td>‏(5.12.2017)</td>
+      </tr>
+            <tr>
+        <td>‏הוחלט (כתיקון להחלטה מיום 11.06.2007) עפ"י תקנה 13 לתקנות חישוב שטחיפ ואחוזי בניה</td>
+      </tr>
+            <tr>
+        <td>‏כדלהלן:</td>
+      </tr>
+            <tr>
+        <td>‏"בנייני ציבור" בהחלטה זו הינם בניינים במגרשים הכלולים בתכנית המתאר בב/105/ב על תיקוניה</td>
+      </tr>
+            <tr>
+        <td>‏      ("תכנית מתאר") שנתקיימו אחד מהתנאים הבאים:</td>
+      </tr>
+            <tr>
+        <td>‏א. בניינים במגרשים שונים ברחבי העיר המשמשים בלמעלה מ- 85% משטחם לצרכים ציבוריים של</td>
+      </tr>
+            <tr>
+        <td>‏חינוך, רווחה, דת ובריאות. עפ"י הוראות סעיף 75 (ה) לתוכנית המתאר, לתקופה שלא</td>
+      </tr>
+            <tr>
+        <td>‏     תפחת מ-10 שנים.</td>
+      </tr>
+            <tr>
+        <td>‏ב. בניינים הבנויים או שייבנו במגרשים במגרשים המיועדים למבני ציבור עפ"י תכנית תקפה</td>
+      </tr>
+            <tr>
+        <td>‏שהופקדה ו/או אושרה לפני 23.2.1992</td>
+      </tr>
+            <tr>
+        <td>‏ג. בניינים הבנויים או שייבנו במגרשים המיועדים למבני ציבור שעליהם חלה תוכנית בב/105/צ על</td>
+      </tr>
+            <tr>
+        <td>‏    תיקוניה.</td>
+      </tr>
+            <tr>
+        <td>‏ד. תוספת בניה לבניינים כאמור בסעיפים א-ג לעיל.</td>
+      </tr>
+            <tr>
+        <td>‏(1) שטחי השירות שעל פי ההחלטות כהגדרתן בנוסח ההחלטה הנ"ל, קיימים.</td>
+      </tr>
+            <tr>
+        <td>‏(2) בנוסף לשטחי השירות שבסעיף (1), בנייני הציבור (עפ"י הגדרתם בהחלטה זו) ועדת המשנה</td>
+      </tr>
+            <tr>
+        <td>‏לתכנון</td>
+      </tr>
+            <tr>
+        <td>‏ובניה בני ברק. (לעיל ולהלן "ועדת משנה") תאשר תוספת שטחי שירות בנוסף לאחוזי הבניה</td>
+      </tr>
+            <tr>
+        <td>‏המותרים על פי תכנית תקפה. בשיעור שלא יעלה על 50% מהשטחים המאושרים לבניה במגרש</td>
+      </tr>
+            <tr>
+        <td>‏   למטרות בניה.</td>
+      </tr>
+            <tr>
+        <td>‏(3) שטחי השירות יהיו ניתנים לחלוקה בין הקומות לפי צרכיו התכנוניים והפונקציונאליים של</td>
+      </tr>
+            <tr>
+        <td>‏הבניין, ובלבד שסך שטחי השירות שיתווספו על פי תקנה זו, בכל קומה, לא יעלו על 20%</td>
+      </tr>
+            <tr>
+        <td>‏     משטחים העיקריים שבאותה קומה.</td>
+      </tr>
+            <tr>
+        <td>‏(4) בנוסף לשטחי השירות שבסעיף (2), תוכל הועדה המקומית לאשר תוספת שטחי שירות נוסף</td>
+      </tr>
+            <tr>
+        <td>‏בהיקף שלא יעלה על 80% משטח תכסית הקומה שמעליה לצורך יצירת קומה מפולשת.</td>
+      </tr>
+            <tr>
+        <td>‏(5) התכליות של שטחי השירות יהיו עפ"י המפורט בתקנות חישוב- שטחים ו/או הוראות דין</td>
+      </tr>
+            <tr>
+        <td>‏רלוונטיות אחרות.</td>
+      </tr>
+            <tr>
+        <td>‏(6) היה והסך הכולל של השטחים למטרות העיקריות (המותרים עפ"י התכנית התקפה) + שטחי</td>
+      </tr>
+            <tr>
+        <td>‏השירות</td>
+      </tr>
+            <tr>
+        <td>‏     (המותרים עפ"י החלטה זו) לא יהיו ניתנים לניצול עקב הוראות סעיף 11 (2) לתקנות התכנית</td>
+      </tr>
+            <tr>
+        <td>‏בדבר קווי הבנין, ניתן יהיה לאשר קומה נוספת (ללא הוספת שטחים) בכפוף להליכי הקלה</td>
+      </tr>
+            <tr>
+        <td>‏     שעל פי דין.</td>
+      </tr>
+            <tr>
+        <td>‏(7) החלטה זו תחול אך ורק על בנייני ציבור כהגדרתן במבוא להחלטה זו.</td>
+      </tr>
+            <tr>
+        <td>‏(8) שטחי השירות המותרים עפ"י החלטה זו בבנייני הציבור, יהיו מתוך השטחים המשמשים לצרכי</td>
+      </tr>
+            <tr>
+        <td>‏ציבור ולא מכלל שטחי הבנייה המותרים בבניין.</td>
+      </tr>
+            <tr>
+        <td>‏(9) כאשר מבוקשת תוספת בנייה לבניין קיים שהוקם לפני 23.02.1992 ניתן יהיה לאשר תוספת שטחי</td>
+      </tr>
+            <tr>
+        <td>‏השירות בשיעור הקבוע בהחלטה זו,</td>
+      </tr>
+            <tr>
+        <td>‏     אך זאת בכפוף ובהתאמה לחישובם מחדש של כל השטחים הבנויים לפי כללי החישוב הקבועים.</td>
+      </tr>
+            <tr>
+        <td>‏(10) היטל השבחה ייגבה כדין.</td>
+      </tr>
+            <tr>
+        <td>‏במקרה של בקשה לבניה חדשה, על מגיש הבקשה לפנות למכון בקרה בשלב הגשת הבקשה להיתר</td>
+      </tr>
+                </tbody>
+  </table>
+</div>
+
+<div class="row" id="addresses" tabindex="-1">
+  <div>
+    <div
+      id="btn-addresses"
+      type="button"
+      class="btn btn-defailt btn-header collapsed"
+      data-toggle="collapse"
+      data-target="#table-addresses"
+      role="button"
+    >
+      <span translatable-text>כתובות</span>
+      <span class="spn">(1)</span>
+    </div>
+  </div>
+  <div id="table-addresses" class="collapse" style="height: 0px">
+    <table class="table table-condensed">
+      <thead>
+        <tr>
+          <th class="th-results-header" translatable-text>ישוב</th>
+          <th class="th-results-header" translatable-text>שם רחוב</th>
+          <th class="th-results-header" translatable-text>מספר בית</th>
+          <th class="th-results-header" translatable-text>כניסה</th>
+          <th class="th-results-header" translatable-text>רוחב דרך</th>
+        </tr>
+      </thead>
+      <tbody>
+                        <tr>
+          <td>בני ברק</td>
+          <td>הבנים</td>
+          <td>3</td>
+          <td></td>
+          <td>10.00</td>
+        </tr>
+                      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="row" id="plans" tabindex="-1">
+  <div>
+    <div
+      id="btn-taba"
+      type="button"
+      class="btn btn-defailt btn-header collapsed"
+      data-toggle="collapse"
+      data-target="#table-taba"
+      role="button"
+    >
+      <span translatable-text>תוכניות למידע תכנוני</span>
+      <span class="spn">(14)</span>
+    </div>
+  </div>
+  <div id="table-taba" class="collapse" style="height: 0px">
+    <table class="table table-condensed">
+      <thead>
+        <tr>
+          <th class="th-results-header hidden-on-mobile"></th>
+          <th class="th-results-header" translatable-text>מספר תוכנית</th>
+          <th class="th-results-header hidden-on-mobile" translatable-text>שם התוכנית</th>
+          <th class="th-results-header" translatable-text>סטטוס</th>
+          <th class="th-results-header" translatable-text>תאריך הסטטוס</th>
+        </tr>
+      </thead>
+      <tbody>
+                        <tr>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(3896)"
+              ><span class="glyphicon glyphicon-new-window black-font-color"></span
+            ></a>
+          </td>
+          <td>
+            <a href="javascript:getTaba(3896)">501-0873794</a>
+          </td>
+          <td class="hidden-on-mobile">קביעת הוראות לחדרי גג ודירות גג</td>
+          <td>בתוקף</td>
+          <td>26/01/2023</td>
+        </tr>
+                <tr>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(3666)"
+              ><span class="glyphicon glyphicon-new-window black-font-color"></span
+            ></a>
+          </td>
+          <td>
+            <a href="javascript:getTaba(3666)">501-0462721</a>
+          </td>
+          <td class="hidden-on-mobile">עקרונות ליישום תמ"א 38 - מחוזית</td>
+          <td>בתוקף</td>
+          <td>02/01/2022</td>
+        </tr>
+                <tr>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(3324)"
+              ><span class="glyphicon glyphicon-new-window black-font-color"></span
+            ></a>
+          </td>
+          <td>
+            <a href="javascript:getTaba(3324)">501-0308296</a>
+          </td>
+          <td class="hidden-on-mobile">תכנית מתאר כוללנית</td>
+          <td>בתוקף</td>
+          <td>03/07/2018</td>
+        </tr>
+                <tr>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(3283)"
+              ><span class="glyphicon glyphicon-new-window black-font-color"></span
+            ></a>
+          </td>
+          <td>
+            <a href="javascript:getTaba(3283)">מק/105/פ/1</a>
+          </td>
+          <td class="hidden-on-mobile">תיקון לתכנית דירות גג בב/מק/105/פ (מס'501-0211441)</td>
+          <td>בתוקף</td>
+          <td>16/12/2015</td>
+        </tr>
+                <tr>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(3123)"
+              ><span class="glyphicon glyphicon-new-window black-font-color"></span
+            ></a>
+          </td>
+          <td>
+            <a href="javascript:getTaba(3123)">מק/105/ג/4</a>
+          </td>
+          <td class="hidden-on-mobile">שינוי בינוי בק"ק  יישור קו 501-0175646</td>
+          <td>בתוקף</td>
+          <td>03/02/2015</td>
+        </tr>
+                <tr>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(1693)"
+              ><span class="glyphicon glyphicon-new-window black-font-color"></span
+            ></a>
+          </td>
+          <td>
+            <a href="javascript:getTaba(1693)">105/ש</a>
+          </td>
+          <td class="hidden-on-mobile">הוראות לבניית דירות שיפוע</td>
+          <td>בתוקף</td>
+          <td>08/01/2009</td>
+        </tr>
+                <tr>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(1470)"
+              ><span class="glyphicon glyphicon-new-window black-font-color"></span
+            ></a>
+          </td>
+          <td>
+            <a href="javascript:getTaba(1470)">מק/105/פ</a>
+          </td>
+          <td class="hidden-on-mobile">פנטהאוזים - בבניינים חדשים / דירות גג</td>
+          <td>בתוקף</td>
+          <td>13/11/2005</td>
+        </tr>
+                <tr>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(1455)"
+              ><span class="glyphicon glyphicon-new-window black-font-color"></span
+            ></a>
+          </td>
+          <td>
+            <a href="javascript:getTaba(1455)">105/ס/2</a>
+          </td>
+          <td class="hidden-on-mobile">תכנית סוכות</td>
+          <td>בתוקף</td>
+          <td>17/08/2005</td>
+        </tr>
+                <tr>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(1341)"
+              ><span class="glyphicon glyphicon-new-window black-font-color"></span
+            ></a>
+          </td>
+          <td>
+            <a href="javascript:getTaba(1341)">מק/105/מ/2</a>
+          </td>
+          <td class="hidden-on-mobile">קווי בניין והוראות בינוי למרתפי חנייה</td>
+          <td>בתוקף</td>
+          <td>31/05/2005</td>
+        </tr>
+                <tr>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(1201)"
+              ><span class="glyphicon glyphicon-new-window black-font-color"></span
+            ></a>
+          </td>
+          <td>
+            <a href="javascript:getTaba(1201)">מק/105/ה</a>
+          </td>
+          <td class="hidden-on-mobile">השלמת יחידת דיור אחת</td>
+          <td>בתוקף</td>
+          <td>24/02/2002</td>
+        </tr>
+                <tr>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(1202)"
+              ><span class="glyphicon glyphicon-new-window black-font-color"></span
+            ></a>
+          </td>
+          <td>
+            <a href="javascript:getTaba(1202)">מק/מעליות</a>
+          </td>
+          <td class="hidden-on-mobile">מעליות בבנינים קיימים</td>
+          <td>בתוקף</td>
+          <td>24/02/2002</td>
+        </tr>
+                <tr>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(238)"
+              ><span class="glyphicon glyphicon-new-window black-font-color"></span
+            ></a>
+          </td>
+          <td>
+            <a href="javascript:getTaba(238)">105/ד/2</a>
+          </td>
+          <td class="hidden-on-mobile">בניה על גגות של בנינים ישנים וחדשים.</td>
+          <td>בתוקף</td>
+          <td>01/03/2001</td>
+        </tr>
+                <tr>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(232)"
+              ><span class="glyphicon glyphicon-new-window black-font-color"></span
+            ></a>
+          </td>
+          <td>
+            <a href="javascript:getTaba(232)">105/ב</a>
+          </td>
+          <td class="hidden-on-mobile">תכנית מתאר בני ברק -  שנוי ל 105/א</td>
+          <td>בתוקף</td>
+          <td>07/08/1980</td>
+        </tr>
+                <tr>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(372)"
+              ><span class="glyphicon glyphicon-new-window black-font-color"></span
+            ></a>
+          </td>
+          <td>
+            <a href="javascript:getTaba(372)">181</a>
+          </td>
+          <td class="hidden-on-mobile">שינויים טבריה - בן גוריון - הרב קוק</td>
+          <td>בתוקף</td>
+          <td>14/08/1969</td>
+        </tr>
+                      </tbody>
+    </table>
+  </div>
+</div>
+
+
+<div class="row" id="rights" tabindex="-1">
+  <div>
+    <div
+      id="btn-rights"
+      type="button"
+      class="btn btn-defailt btn-header collapsed"
+      data-toggle="collapse"
+      data-target="#table-rights"
+      role="button"
+    >
+      <span translatable-text>זכויות בתוקף לחלקה</span>
+      <span class="spn">(13)</span>
+    </div>
+  </div>
+    <div id="table-rights" class="collapse" style="height: 0px">
+    <table class="table table-condensed">
+      <thead>
+        <tr>
+          <th translatable-text>זכות</th>
+          <th translatable-text>ערך</th>
+          <th translatable-text>יחידה</th>
+          <th class="hidden-on-mobile" translatable-text>מתוכנית</th>
+          <th class="hidden-on-mobile" translatable-text>מתאריך</th>
+          <th class="center-text" translatable-text>פירוט</th>
+        </tr>
+      </thead>
+      <tbody>
+                        <tr>
+          <td>מס' קומות מעל ק. עמודים מפולשת</td>
+          <td>3</td>
+          <td></td>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(232)">105/ב</a>
+          </td>
+          <td class="hidden-on-mobile">07/08/1980</td>
+          <td class="center-text">
+                      </td>
+        </tr>
+                <tr>
+          <td>מרפסת סוכה</td>
+          <td>8</td>
+          <td>מ"ר</td>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(1455)">105/ס/2</a>
+          </td>
+          <td class="hidden-on-mobile">17/08/2005</td>
+          <td class="center-text">
+                      </td>
+        </tr>
+                <tr>
+          <td>סה"כ אחוז בניה</td>
+          <td>138</td>
+          <td>אחוז</td>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(232)">105/ב</a>
+          </td>
+          <td class="hidden-on-mobile">07/08/1980</td>
+          <td class="center-text">
+                      </td>
+        </tr>
+                <tr>
+          <td>אחוז קומה טיפוסית</td>
+          <td>46</td>
+          <td>אחוז</td>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(232)">105/ב</a>
+          </td>
+          <td class="hidden-on-mobile">07/08/1980</td>
+          <td class="center-text">
+                      </td>
+        </tr>
+                <tr>
+          <td>חדר יציאה לגג ליח"ד עליונה</td>
+          <td>60</td>
+          <td>מ"ר</td>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(3896)">501-0873794</a>
+          </td>
+          <td class="hidden-on-mobile">26/01/2023</td>
+          <td class="center-text">
+                      </td>
+        </tr>
+                <tr>
+          <td>חדר ממ"ד</td>
+          <td>12</td>
+          <td>מ"ר</td>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(232)">105/ב</a>
+          </td>
+          <td class="hidden-on-mobile">07/08/1980</td>
+          <td class="center-text">
+                      </td>
+        </tr>
+                <tr>
+          <td>יח"ד לדונם</td>
+          <td>18</td>
+          <td></td>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(232)">105/ב</a>
+          </td>
+          <td class="hidden-on-mobile">07/08/1980</td>
+          <td class="center-text">
+                      </td>
+        </tr>
+                <tr>
+          <td>מקדם צפיפות</td>
+          <td>55</td>
+          <td></td>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(232)">105/ב</a>
+          </td>
+          <td class="hidden-on-mobile">07/08/1980</td>
+          <td class="center-text">
+                      </td>
+        </tr>
+                <tr>
+          <td>קו בנין לחזית א</td>
+          <td>3</td>
+          <td>מ'</td>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(372)">181</a>
+          </td>
+          <td class="hidden-on-mobile">14/08/1969</td>
+          <td class="center-text">
+                        <button
+              href="#modal-window"
+              data-toggle="modal"
+              data-keyboard="true"
+              class="btn btn-default btn-xs black-font-color"
+              onClick="showZchutRemark(253, this)"
+              aria-haspopup="true"
+              aria-label="פירוט זכות זו"
+            >
+              <span class="glyphicon glyphicon-info-sign"></span>
+            </button>
+                      </td>
+        </tr>
+                <tr>
+          <td>קו בנין לצד</td>
+          <td>3</td>
+          <td>מ'</td>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(232)">105/ב</a>
+          </td>
+          <td class="hidden-on-mobile">07/08/1980</td>
+          <td class="center-text">
+                      </td>
+        </tr>
+                <tr>
+          <td>קו בנין לאחור</td>
+          <td>5</td>
+          <td>מ'</td>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(232)">105/ב</a>
+          </td>
+          <td class="hidden-on-mobile">07/08/1980</td>
+          <td class="center-text">
+                      </td>
+        </tr>
+                <tr>
+          <td>שטח מגרש מינימלי</td>
+          <td>500</td>
+          <td>מ"ר</td>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(232)">105/ב</a>
+          </td>
+          <td class="hidden-on-mobile">07/08/1980</td>
+          <td class="center-text">
+                      </td>
+        </tr>
+                <tr>
+          <td>רוחב חזית מינימלית</td>
+          <td>18</td>
+          <td>מ'</td>
+          <td class="hidden-on-mobile">
+            <a href="javascript:getTaba(232)">105/ב</a>
+          </td>
+          <td class="hidden-on-mobile">07/08/1980</td>
+          <td class="center-text">
+                      </td>
+        </tr>
+                      </tbody>
+    </table>
+  </div>
+  </div>
+
+                                                                                                     
+
+<br />
+<div class="center-text">
+  <button
+    id="print-btn"
+    class="btn btn-primary hidden-xs"
+    onClick="$$jquery('#MainContainerHandasa').print(); return false;"
+  >
+    <span class="glyphicon glyphicon-print"></span> <span translatable-text>הדפסה</span>
+  </button>
+</div>
+
+<button
+  translatable-title
+  translatable-bs-title
+  id="back-to-top"
+  href="#"
+  class="btn btn-primary scroll-back-to-top"
+  title="חזרה לראש הדף"
+  onClick="scrollToElement(MAIN_CONTAINER_SELECTOR,500); return false;"
+  data-toggle="tooltip"
+  data-placement="left"
+>
+  <span class="glyphicon glyphicon-chevron-up"></span>
+</button>
+
+<script>
+  $(function() {
+    $(MAIN_CONTAINER_SELECTOR).find("#btn-addresses").click();
+  });
+</script>

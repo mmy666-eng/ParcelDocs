@@ -19,6 +19,8 @@
 | 4 | רישוי זמין | – | – | דורש הזדהות. אין צפייה ציבורית | ❌ לא נמצא |
 | 5 | היתרים (בני ברק) | Complot `GetBakashotBy*`, `GetBakashaFile`, `GetBakashaDocs` | דף HTML | אין התחברות | ✅ |
 
+> ⛔ **Complot – דורש פעולה ידנית (מ-2026-10-28 16:18):** השרת `handasi.complot.co.il` מחזיר `429 Too Many Requests` לכל בקשה מכתובת ה-IP שלנו, גם בקצב של בקשה לדקה. בבדיקה האחרונה (16:36) החיבור לא נענה. אין CAPTCHA או התחברות. זו כנראה חסימת IP זמנית שהופעלה בגלל עומס הבקשות בשלב המחקר. **לא לנסות לעקוף.** עד שהחסימה תשתחרר: כל המידע העירוני (כתובות, תב"עות עירוניות, מסמכים, היתרים) מסומן "דורש פעולה ידנית", והקוד נבדק רק מול fixtures שמורים. הארכיון `archive.gis-net.co.il` הוא שרת נפרד ולא נבדק מאז.
+
 אף מקור לא דורש דפדפן (Playwright). כולם עובדים ב-HTTP פשוט.
 
 ---
@@ -82,7 +84,9 @@ GET .../Xplan/MapServer/1/query?geometry=183620,665826&geometryType=esriGeometry
   &inSR=2039&spatialRel=esriSpatialRelIntersects&returnGeometry=false&f=json
   &outFields=pl_number,pl_name,station_desc,internet_short_status,entity_subtype_desc,pl_date_8,pl_url
 ```
-לפוליגון: `geometryType=esriGeometryPolygon&geometry={"rings":[[[x,y],...]],"spatialReference":{"wkid":2039}}`. הצורה הזו לא נבדקה, רק נקודה.
+לפוליגון (מאומת): **POST** עם `geometryType=esriGeometryPolygon&geometry={"rings":[[[x,y],...]],"spatialReference":{"wkid":2039}}`. ב-GET עם פוליגון השרת מחזיר 404, כנראה בגלל אורך ה-URL.
+
+**TLS:** השרת מציע רק את הצופן הישן `AES128-SHA` (TLS 1.2, החלפת מפתחות RSA). Python/OpenSSL 3 משמיט אותו כברירת מחדל ומקבל `SSLV3_ALERT_HANDSHAKE_FAILURE`. curl ב-Windows (Schannel) מתחבר. הפתרון בקוד: הקשר TLS עם `DEFAULT:@SECLEVEL=1` **רק לשרת הזה** (`legacy_tls_hosts` ב-config). אימות התעודה נשאר פעיל. זו תצורה ישנה של השרת ולא חסימה.
 
 תגובה לדוגמה (11 תכניות בחלקת המבחן):
 ```json
@@ -92,7 +96,7 @@ GET .../Xplan/MapServer/1/query?geometry=183620,665826&geometryType=esriGeometry
  "pl_url":"https://mavat.iplan.gov.il/SV4/1/5005077848/310"}
 ```
 
-**סינון מאושרות:** `station_desc = 'אישור'` (אפשר בצד השרת: `where=station_desc='אישור'`). ערכים אחרים שנצפו: `"בבדיקה תכנונית"`, `"הכנת הודעה 77/78"`. 7 מתוך 11 מאושרות.
+**סינון מאושרות:** `station_desc = 'אישור'`, בצד הלקוח. סינון בצד השרת (`where=station_desc='אישור'`) מחזיר 0 תוצאות, כנראה בגלל קידוד העברית. ערכים אחרים שנצפו: `"בבדיקה תכנונית"`, `"הכנת הודעה 77/78"`. **8 מתוך 11** מאושרות (תיקון לגרסה הקודמת של המסמך, שבה נכתב 7).
 
 - `entity_subtype_desc` מחזיר את סוג התכנית: מפורטת / מתאר מקומית / כוללנית / מתאר ארצית.
 - `pl_date_8` הוא תאריך הפרסום ברשומות (epoch ms).
@@ -142,6 +146,7 @@ GET https://handasi.complot.co.il/magicscripts/mgrqispi.dll?appname=cixpa&prgnam
 - סוג: **קטעי HTML** (Bootstrap) שצריך לפרסר. בנוסף יש SOAP ב-`.../wsComplotPublicData/ComplotPublicData.asmx` לרשימות (רחובות, יישובים, גושים, חלקות).
 - את שמות הפעולות והפרמטרים מצאתי בקבצים `handasi2016/Scripts/Complot/request/min/_routes.min.js` ו-`handasi2016/Scripts/wp/site.min.js`.
 - אין התחברות ואין CAPTCHA. `robots.txt` לא קיים (השרת מחזיר עמוד שגיאה).
+- **הגבלת קצב:** בקצב של בקשה אחת בשנייה השרת החזיר `429 Too Many Requests` אחרי כ-9 בקשות, בלי כותרת `Retry-After`. החסימה נמשכה כמה דקות. בקוד: מרווח של 3 שניות בין בקשות לשרת הזה (`host_min_interval_seconds`), והמתנה של 60 שניות כפול מספר הניסיון אחרי 429.
 
 ### 5.2 חלקה – `GetGushFile` ✅
 ```
@@ -198,7 +203,8 @@ PDF לדוגמה: HTTP 200, `application/pdf`, ‏272 KB. בקשה בלי שור
 2. **מבא"ת חסום ב-reCAPTCHA.** תכניות שאין להן עותק ב-Complot יסומנו "דורש פעולה ידנית" עם `pl_url`.
 3. ~~`rishui_zamin.py`~~ **הוחלט (2026-10-28):** הוסר מגרסה 1. ה-PRD עודכן.
 4. עימוד ב-`GetBakashotByGush`: ברירת המחדל מחזירה 50 תוצאות. בחיפוש לפי חלקה בודדת זה כנראה לא משנה. צריך לבדוק את `getUnlimitedSearch` אם יידרש.
-5. שאילתת פוליגון ב-iplan (`esriGeometryPolygon`) לא נבדקה, רק נקודה.
+5. ~~שאילתת פוליגון ב-iplan~~ נבדקה: עובדת ב-POST.
+6. `GetGushMakorFile` (חלקת מקור של חלקה בת) מחזיר "לא ניתן להציג" עבור 6123/2518. אין דרך מאומתת לעבור מחלקה בת לחלקת המקור, ולכן חלקה בת שאינה במפ"י נבדקת רק במערכת העירונית.
 
 ## המלצה לשלב 1 (תב"עות ב-CLI)
 1. `cadastre.py`: GovMap WFS עם `INTERSECTS`, ולכל חלקה בדיקת פרצלציה ב-Complot `GetGushFile` עם מעבר לחלקות הבנות.

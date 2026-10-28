@@ -1,0 +1,39 @@
+# ParcelDocs service configuration.
+# Relative paths are resolved against this file's directory.
+
+output_dir: ../output
+cache_db: ../output/.cache/downloads.sqlite
+
+user_agent: "ParcelDocs/0.1 (internal surveying-office tool; +https://github.com/mmy666-eng/ParcelDocs)"
+requests_per_second: 1.0
+timeout_seconds: 60
+retries: 4
+
+# Slower pace for hosts that answer 429 at one request per second (docs/sources.md §5.1).
+host_min_interval_seconds:
+  handasi.complot.co.il: 3.0
+# Wait after a 429 without Retry-After; multiplied by the attempt number.
+rate_limited_wait_seconds: 60
+
+# Hosts that only offer legacy TLS ciphers (AES128-SHA); see docs/sources.md §3א.
+legacy_tls_hosts:
+  - ags.iplan.gov.il
+
+# Negative buffer applied to the query polygon before intersecting with the cadastre (PRD §4.1).
+parcel_buffer_m: -0.5
+
+# Complot plan ids (the n= of GetTabaFile) for city-wide Bnei Brak plans that are always
+# included, even when they do not come up for the parcel (PRD §4.3).
+citywide_plans: []
+
+# Sources the tool must not contact. bnei_brak (Complot) blocks our IP with HTTP 429
+# since 2026-10-28; remove it from this list only after checking it answers again.
+disabled_sources:
+  - bnei_brak
+
+# Endpoints verified in docs/sources.md.
+sources:
+  govmap_wfs: https://open.govmap.gov.il/geoserver/opendata/wfs
+  iplan_plans_layer: https://ags.iplan.gov.il/arcgisiplan/rest/services/PlanningPublic/Xplan/MapServer/1
+  complot_base: https://handasi.complot.co.il/magicscripts/mgrqispi.dll
+  complot_site_id: 75
