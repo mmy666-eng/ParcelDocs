@@ -54,6 +54,7 @@ GET .../wfs?service=WFS&version=2.0.0&request=GetFeature
 ## 2. כתובות ✅
 
 GovMap open WFS לא כולל שכבת כתובות. המקור הוא Complot של העירייה (§5).
+נבדק שוב ב-2026-10-28 (`GetCapabilities`): יש 7 שכבות בלבד – `Nikuz`, `SUB_GUSH_ALL`, `SUB_GUSH_ALL_ITM`, `PARCEL_ALL`, `Parcels_ITM`, `nechalim1`, `muni_il`. ב-`Parcels_ITM` אין שדה כתובת. לכן כש-Complot מושבת, `addresses` ריק, ומופיעה על כך אזהרה.
 
 | מה | קריאה | תוצאה |
 |---|---|---|

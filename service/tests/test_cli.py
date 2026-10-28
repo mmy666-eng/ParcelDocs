@@ -82,6 +82,9 @@ def test_full_run_with_city_system(tmp_path: Path):
     assert code == 0
     manifest = _manifest(tmp_path)
     assert [(p["gush"], p["helka"]) for p in manifest["parcels"]] == [(6123, 2518)]
+    # Addresses come only from the city system's parcel file.
+    addresses = [(a["street"], a["number"]) for a in manifest["parcels"][0]["addresses"]]
+    assert addresses == [("הבנים", "3")]
     plans = {p["number"]: p for p in manifest["plans"]}
     # 3896 is in the city system and in iplan: merged, with documents.
     assert plans["501-0873794"]["source"] == "bnei_brak+iplan"
@@ -124,4 +127,11 @@ def test_disabled_city_system_is_never_contacted(tmp_path: Path):
     assert manifest["files"] == []
     assert manifest["permits"] == []
     assert any("היתרי בנייה לא נבדקו" in w for w in manifest["warnings"])
+    # The cadastre has no addresses; the warning says why they are missing.
+    assert any("כתובות" in w for w in manifest["warnings"])
     assert [(p["gush"], p["helka"]) for p in manifest["parcels"]] == [(6123, 443)]
+    root = tmp_path / "out" / "בדיקה_ג6123_ח443_2026-10-28"
+    assert "resolve parcel 6123/443" in (root / "99_לוג" / "run.log").read_text(encoding="utf-8")
+    dxf = (root / "00_סיכום" / "polygon.dxf").read_text(encoding="ascii")
+    assert "PARCELDOCS_PARCELS" in dxf
+    assert "6123/443" in dxf

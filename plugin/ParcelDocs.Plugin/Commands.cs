@@ -103,10 +103,13 @@ namespace ParcelDocs.Plugin
                 {
                     summary += "\n\n" + string.Join("\n", downloaded.Warnings.Select(w => "⚠ " + w));
                 }
+                string folder = Path.GetFullPath(downloaded.Folder)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 if (ShowMessage(summary + "\n\nלפתוח את התיקייה?", MessageBoxIcon.Information,
-                        MessageBoxButtons.YesNo) == DialogResult.Yes && Directory.Exists(downloaded.Folder))
+                        MessageBoxButtons.YesNo) == DialogResult.Yes && Directory.Exists(folder))
                 {
-                    Process.Start("explorer.exe", "\"" + downloaded.Folder + "\"");
+                    // Shell-open the project folder itself rather than passing it to explorer.exe.
+                    Process.Start(new ProcessStartInfo { FileName = folder, UseShellExecute = true, Verb = "open" });
                 }
             }
         }

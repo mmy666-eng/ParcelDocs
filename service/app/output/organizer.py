@@ -4,6 +4,9 @@ import json
 from datetime import date, datetime
 from pathlib import Path
 
+from shapely import wkt
+from shapely.geometry.base import BaseGeometry
+
 from app.models import Document, DocumentKind, ManifestEntry, Parcel, Permit, Plan
 from app.utils.filenames import long_path, safe_name
 
@@ -119,3 +122,55 @@ class OutputOrganizer:
             json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         return path
+
+    def write_log(self, lines: list[str]) -> Path:
+        """Append one run's log lines; reruns into the same folder keep earlier runs."""
+        with long_path(self.log_file).open("a", encoding="utf-8") as handle:
+            handle.writelines(f"{line}\n" for line in lines)
+        return self.log_file
+
+    def write_polygon_dxf(self, polygon_wkt: str, parcels: list[Parcel]) -> Path:
+        """The query polygon and the cadastre parcels in ITM, as DXF R12 (ASCII only)."""
+        entities: list[str] = []
+        for ring in _rings(wkt.loads(polygon_wkt)):
+            entities.extend(_dxf_polyline(ring, POLYGON_LAYER))
+        for parcel in parcels:
+            if not parcel.geometry_wkt:
+                continue
+            geometry = wkt.loads(parcel.geometry_wkt)
+            for ring in _rings(geometry):
+                entities.extend(_dxf_polyline(ring, PARCELS_LAYER))
+            point = geometry.representative_point()
+            entities.extend(
+                _dxf_text(point.x, point.y, f"{parcel.gush}/{parcel.helka}", PARCELS_LAYER)
+            )
+        lines = ["0", "SECTION", "2", "HEADER", "9", "$ACADVER", "1", "AC1009", "0", "ENDSEC"]
+        lines += ["0", "SECTION", "2", "ENTITIES", *entities, "0", "ENDSEC", "0", "EOF"]
+        path = self.summary_dir / "polygon.dxf"
+        long_path(path).write_text("\n".join(lines) + "\n", encoding="ascii")
+        return path
+
+
+POLYGON_LAYER = "PARCELDOCS_POLYGON"
+PARCELS_LAYER = "PARCELDOCS_PARCELS"
+
+
+def _rings(geometry: BaseGeometry) -> list[list[tuple[float, float]]]:
+    polygons = getattr(geometry, "geoms", [geometry])
+    return [
+        [(x, y) for x, y, *_ in ring.coords[:-1]]
+        for polygon in polygons
+        for ring in (polygon.exterior, *polygon.interiors)
+    ]
+
+
+def _dxf_polyline(points: list[tuple[float, float]], layer: str) -> list[str]:
+    lines = ["0", "POLYLINE", "8", layer, "66", "1", "70", "1"]
+    for x, y in points:
+        lines += ["0", "VERTEX", "8", layer, "10", f"{x:.3f}", "20", f"{y:.3f}", "30", "0.0"]
+    return [*lines, "0", "SEQEND", "8", layer]
+
+
+def _dxf_text(x: float, y: float, text: str, layer: str) -> list[str]:
+    return ["0", "TEXT", "8", layer, "10", f"{x:.3f}", "20", f"{y:.3f}", "30", "0.0",
+            "40", "1.0", "1", text]  # fmt: skip

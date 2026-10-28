@@ -52,6 +52,14 @@ def test_resolve_then_download_selected_items(tmp_path: Path):
     folder = Path(result["folder"])
     assert (folder / "00_סיכום" / "manifest.json").is_file()
     assert (folder / "01_היתרי_בניה" / "1989_היתר_9545" / "היתר.pdf").is_file()
+    # PRD §4.5: the run log covers resolve and download; the DXF has the user's polygon.
+    run_log = (folder / "99_לוג" / "run.log").read_text(encoding="utf-8")
+    assert "resolve polygon with 4 vertices" in run_log
+    assert "download: project=בדיקה" in run_log
+    dxf = (folder / "00_סיכום" / "polygon.dxf").read_text(encoding="ascii")
+    assert "PARCELDOCS_POLYGON" in dxf
+    assert "183609.500" in dxf and "665815.800" in dxf
+    assert dxf.rstrip().endswith("EOF")
 
 
 def test_resolve_rejects_wgs84(tmp_path: Path):

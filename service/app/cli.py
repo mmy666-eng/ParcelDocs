@@ -9,7 +9,6 @@ from pathlib import Path
 from app.config import Config, load_config
 from app.download.downloader import HttpClient, SourceError
 from app.models import Address
-from app.output.organizer import OutputOrganizer
 from app.pipeline import NotFoundError, Pipeline, ResolveResult, permit_id, plan_id
 
 log = logging.getLogger("parceldocs")
@@ -25,33 +24,23 @@ def run(
     today: date | None = None,
 ) -> int:
     pipeline = Pipeline(config, http)
-    handler = None
-    if not dry_run:
-        # The log covers the whole run, so the folder is created before resolving.
-        organizer = OutputOrganizer(config.output_dir, project, gush, helka, today or date.today())
-        organizer.create()
-        handler = _log_to_file(organizer.log_file)
+    log.info("run: project=%s gush=%d helka=%d dry_run=%s", project, gush, helka, dry_run)
     try:
-        log.info("run: project=%s gush=%d helka=%d dry_run=%s", project, gush, helka, dry_run)
-        try:
-            result = pipeline.resolve_parcel(gush, helka)
-        except NotFoundError as exc:
-            print(f"{exc}.", file=sys.stderr)
-            return 2
-        folder = None
-        files = cached = 0
-        warnings = result.warnings
-        if not dry_run:
-            downloaded = pipeline.download(result, project, today=today)
-            folder, warnings = downloaded.folder, downloaded.warnings
-            files = len(downloaded.files)
-            cached = sum(1 for f in downloaded.files if f.from_cache)
-        _print_summary(result, warnings, folder, files, cached)
-        return 0
-    finally:
-        if handler is not None:
-            logging.getLogger().removeHandler(handler)
-            handler.close()
+        result = pipeline.resolve_parcel(gush, helka)
+    except NotFoundError as exc:
+        print(f"{exc}.", file=sys.stderr)
+        return 2
+    folder = None
+    files = cached = 0
+    warnings = result.warnings
+    if not dry_run:
+        # The pipeline writes 99_לוג/run.log, covering both resolve and download.
+        downloaded = pipeline.download(result, project, today=today)
+        folder, warnings = downloaded.folder, downloaded.warnings
+        files = len(downloaded.files)
+        cached = sum(1 for f in downloaded.files if f.from_cache)
+    _print_summary(result, warnings, folder, files, cached)
+    return 0
 
 
 def _print_summary(
@@ -83,17 +72,6 @@ def _print_summary(
 
 def _addresses(addresses: list[Address]) -> str:
     return ", ".join(f"{a.street} {a.number}" for a in addresses) or "-"
-
-
-def _log_to_file(path: Path) -> logging.Handler:
-    handler = logging.FileHandler(path, encoding="utf-8")
-    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
-    handler.setLevel(logging.DEBUG)
-    root = logging.getLogger()
-    root.addHandler(handler)
-    if root.level > logging.INFO:
-        root.setLevel(logging.INFO)
-    return handler
 
 
 def main(argv: list[str] | None = None) -> int:

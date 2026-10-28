@@ -6,7 +6,10 @@ download fetches the documents of the items the user kept and builds the folder.
 
 import logging
 import re
+import threading
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
 
@@ -36,8 +39,11 @@ MANUAL_CITY_UNAVAILABLE = 'המערכת העירונית לא זמינה – ל�
 MANUAL_NOT_SCANNED = "לא סרוק – לפנות לארכיון"
 
 CITY_SOURCE = "bnei_brak"
-CITY_DISABLED = 'המערכת העירונית (Complot) מושבתת ב-config – תב"עות עירוניות ומסמכים לא נבדקו'
-CITY_UNAVAILABLE = 'המערכת העירונית (Complot) לא זמינה – תב"עות עירוניות ומסמכים לא נבדקו'
+# The cadastre has no addresses; they come only from the city system.
+CITY_DISABLED = (
+    'המערכת העירונית (Complot) מושבתת ב-config – כתובות, תב"עות עירוניות ומסמכים לא נבדקו'
+)
+CITY_UNAVAILABLE = 'המערכת העירונית (Complot) לא זמינה – כתובות, תב"עות עירוניות ומסמכים לא נבדקו'
 PERMITS_NOT_CHECKED = "היתרי בנייה לא נבדקו – המערכת העירונית לא זמינה"
 IPLAN_UNAVAILABLE = "מנהל התכנון (iplan) לא זמין – תכניות לפי מיקום לא נבדקו"
 
@@ -59,6 +65,9 @@ class ResolveResult(BaseModel):
     permits: list[Permit]
     permit_documents: dict[str, list[Document]]
     warnings: list[str]
+    polygon_wkt: str | None = None
+    # Log lines of the resolve step; the folder (and run.log) exists only at download.
+    log: list[str] = []
 
 
 class DownloadResult(BaseModel):
@@ -163,6 +172,34 @@ def collect_permits(
     return list(permits.values())
 
 
+class _RunLog(logging.Handler):
+    """Collects this thread's parceldocs log lines for 99_לוג/run.log."""
+
+    def __init__(self) -> None:
+        super().__init__(logging.INFO)
+        self.lines: list[str] = []
+        self._thread = threading.get_ident()
+        self.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+
+    def emit(self, record: logging.LogRecord) -> None:
+        if record.thread == self._thread:
+            self.lines.append(self.format(record))
+
+
+@contextmanager
+def _capture_log() -> Iterator[_RunLog]:
+    handler = _RunLog()
+    previous = log.level
+    log.addHandler(handler)
+    if log.getEffectiveLevel() > logging.INFO:
+        log.setLevel(logging.INFO)
+    try:
+        yield handler
+    finally:
+        log.removeHandler(handler)
+        log.setLevel(previous)
+
+
 def make_http(config: Config) -> HttpClient:
     return HttpClient(
         config.user_agent,
@@ -192,25 +229,33 @@ class Pipeline:
 
     def resolve_parcel(self, gush: int, helka: int) -> ResolveResult:
         self.http.start_run()
-        parcel = self.cadastre.get_parcel(gush, helka)
-        geometry = parcel_geometry(parcel) if parcel else None
-        query = geometry.buffer(self.config.parcel_buffer_m) if geometry else None
-        warnings = []
-        if geometry is None:
-            warnings.append(
-                f'החלקה {gush}/{helka} לא קיימת בקדסטר של מפ"י – חיפוש מרחבי ב-iplan דולג'
-            )
-        return self._resolve([(gush, helka)], [parcel] if parcel else [], query, warnings)
+        with _capture_log() as run_log:
+            log.info("resolve parcel %d/%d", gush, helka)
+            parcel = self.cadastre.get_parcel(gush, helka)
+            geometry = parcel_geometry(parcel) if parcel else None
+            query = geometry.buffer(self.config.parcel_buffer_m) if geometry else None
+            warnings = []
+            if geometry is None:
+                warnings.append(
+                    f'החלקה {gush}/{helka} לא קיימת בקדסטר של מפ"י – חיפוש מרחבי ב-iplan דולג'
+                )
+            result = self._resolve([(gush, helka)], [parcel] if parcel else [], query, warnings)
+        return result.model_copy(
+            update={"polygon_wkt": geometry.wkt if geometry else None, "log": run_log.lines}
+        )
 
     def resolve_polygon(self, polygon: BaseGeometry) -> ResolveResult:
         check_itm(polygon)
         self.http.start_run()
-        found = self.cadastre.find_by_polygon(polygon, self.config.parcel_buffer_m)
-        if not found:
-            raise NotFoundError('לא נמצאו חלקות של מפ"י בתוך הפוליגון')
-        requested = sorted((p.gush, p.helka) for p in found)
-        query = polygon.buffer(self.config.parcel_buffer_m)
-        return self._resolve(requested, found, query, [])
+        with _capture_log() as run_log:
+            log.info("resolve polygon with %d vertices", len(polygon.exterior.coords) - 1)
+            found = self.cadastre.find_by_polygon(polygon, self.config.parcel_buffer_m)
+            if not found:
+                raise NotFoundError('לא נמצאו חלקות של מפ"י בתוך הפוליגון')
+            requested = sorted((p.gush, p.helka) for p in found)
+            query = polygon.buffer(self.config.parcel_buffer_m)
+            result = self._resolve(requested, found, query, [])
+        return result.model_copy(update={"polygon_wkt": polygon.wkt, "log": run_log.lines})
 
     def _resolve(
         self,
@@ -221,6 +266,7 @@ class Pipeline:
     ) -> ResolveResult:
         city_available = CITY_SOURCE not in self.config.disabled_sources
         status = {(p.gush, p.helka): p.status for p in cadastre_parcels}
+        geometries = {(p.gush, p.helka): p.geometry_wkt for p in cadastre_parcels}
         resolved_by_request: dict[tuple[int, int], list[GushFile]] = {}
         if not city_available:
             warnings.append(CITY_DISABLED)
@@ -254,7 +300,13 @@ class Pipeline:
             )
         unique = {(g.gush, g.helka): g for g in gush_files}
         parcels = [
-            Parcel(gush=g.gush, helka=g.helka, addresses=g.addresses, status=status.get(key))
+            Parcel(
+                gush=g.gush,
+                helka=g.helka,
+                addresses=g.addresses,
+                status=status.get(key),
+                geometry_wkt=geometries.get(key),
+            )
             for key, g in unique.items()
         ]
 
@@ -326,6 +378,19 @@ class Pipeline:
         """Download the documents of the selected item ids (all items when None)."""
         organizer = self.organizer(result, project, today)
         organizer.create()
+        with _capture_log() as run_log:
+            log.info("download: project=%s selected=%s", project, sorted(selected or []) or "all")
+            downloaded = self._download(result, organizer, project, selected)
+        organizer.write_log([*result.log, *run_log.lines])
+        return downloaded
+
+    def _download(
+        self,
+        result: ResolveResult,
+        organizer: OutputOrganizer,
+        project: str,
+        selected: set[str] | None,
+    ) -> DownloadResult:
         plans = [p for p in result.plans if selected is None or plan_id(p) in selected]
         permits = [p for p in result.permits if selected is None or permit_id(p) in selected]
         warnings = list(result.warnings)
@@ -358,6 +423,9 @@ class Pipeline:
         organizer.write_manifest(
             project, result.gush, result.helka, result.parcels, plans, files, warnings, permits
         )
+        if result.polygon_wkt:
+            organizer.write_polygon_dxf(result.polygon_wkt, result.parcels)
+        log.info("downloaded %d files to %s", len(files), organizer.root)
         return DownloadResult(
             folder=organizer.root,
             files=files,

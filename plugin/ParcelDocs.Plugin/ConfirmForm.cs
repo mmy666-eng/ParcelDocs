@@ -9,6 +9,9 @@ namespace ParcelDocs.Plugin
     /// <summary>Lets the user keep or drop plans and permits and name the project (PRD §3 step 4).</summary>
     public sealed class ConfirmForm : Form
     {
+        // Upper bound for the name column so long plan names don't push the notes off screen.
+        private const int MaxNameColumnWidth = 420;
+
         private readonly ListView _items;
         private readonly TextBox _project;
 
@@ -19,10 +22,11 @@ namespace ParcelDocs.Plugin
             RightToLeftLayout = true;
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = false;
-            MaximizeBox = false;
             ShowInTaskbar = false;
-            Size = new Size(900, 600);
             Font = new Font("Segoe UI", 9.5f);
+            AutoScaleMode = AutoScaleMode.Font;
+            ClientSize = new Size(1150, 640);
+            MinimumSize = new Size(800, 450);
 
             var parcels = string.Join(", ", result.Parcels.Select(p =>
             {
@@ -32,15 +36,27 @@ namespace ParcelDocs.Plugin
             }));
             var header = new Label
             {
-                Dock = DockStyle.Top,
-                Height = 28,
+                AutoSize = true,
                 Text = $"חלקות: {parcels}",
-                Padding = new Padding(6, 6, 6, 0),
+                Margin = new Padding(6, 8, 6, 4),
             };
 
-            var projectPanel = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 34, Padding = new Padding(4) };
-            projectPanel.Controls.Add(new Label { Text = "שם הפרויקט:", AutoSize = true, Margin = new Padding(3, 7, 3, 3) });
-            _project = new TextBox { Width = 300, Text = defaultProject };
+            var projectPanel = new FlowLayoutPanel
+            {
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = false,
+                Margin = new Padding(3),
+            };
+            projectPanel.Controls.Add(new Label
+            {
+                Text = "שם הפרויקט:",
+                AutoSize = true,
+                Anchor = AnchorStyles.Left | AnchorStyles.Right,
+                Margin = new Padding(3, 7, 3, 3),
+            });
+            // Editable; the drawing name is only the default.
+            _project = new TextBox { Width = 450, Text = defaultProject, ReadOnly = false, Margin = new Padding(3, 4, 3, 3) };
             projectPanel.Controls.Add(_project);
 
             _items = new ListView
@@ -52,12 +68,12 @@ namespace ParcelDocs.Plugin
                 GridLines = true,
                 RightToLeftLayout = true,
             };
-            _items.Columns.Add("סוג", 70);
-            _items.Columns.Add("מספר", 120);
-            _items.Columns.Add("שם / תיאור", 330);
-            _items.Columns.Add("תאריך", 90);
-            _items.Columns.Add("מסמכים", 65);
-            _items.Columns.Add("הערה", 200);
+            _items.Columns.Add("סוג");
+            _items.Columns.Add("מספר");
+            _items.Columns.Add("שם / תיאור");
+            _items.Columns.Add("תאריך");
+            _items.Columns.Add("מס' מסמכים");
+            _items.Columns.Add("הערה");
             foreach (var plan in result.Plans)
             {
                 AddItem(plan.Id, "תב\"ע", plan.Number, plan.Name, plan.ApprovalDate, plan.Documents, plan.ManualAction);
@@ -67,29 +83,33 @@ namespace ParcelDocs.Plugin
                 AddItem(permit.Id, "היתר", permit.PermitNumber ?? permit.RequestNumber, permit.Description,
                     permit.Date, permit.Documents, permit.ManualAction);
             }
+            FitColumns();
 
+            bool hasWarnings = result.Warnings != null && result.Warnings.Count > 0;
             var warnings = new TextBox
             {
-                Dock = DockStyle.Bottom,
-                Height = 70,
+                Dock = DockStyle.Fill,
                 Multiline = true,
                 ReadOnly = true,
                 ScrollBars = ScrollBars.Vertical,
                 Text = string.Join(Environment.NewLine, (result.Warnings ?? new List<string>()).Select(w => "⚠ " + w)),
-                Visible = result.Warnings != null && result.Warnings.Count > 0,
+                Visible = hasWarnings,
             };
 
             var buttons = new FlowLayoutPanel
             {
-                Dock = DockStyle.Bottom,
-                Height = 42,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 FlowDirection = FlowDirection.LeftToRight,
-                Padding = new Padding(6),
+                WrapContents = false,
+                Margin = new Padding(6),
             };
-            var ok = new Button { Text = "הורדה", DialogResult = DialogResult.OK, Width = 100 };
-            var cancel = new Button { Text = "ביטול", DialogResult = DialogResult.Cancel, Width = 100 };
-            var all = new Button { Text = "סמן הכל", Width = 100 };
-            var none = new Button { Text = "בטל הכל", Width = 100 };
+            var ok = MakeButton("הורדה");
+            ok.DialogResult = DialogResult.OK;
+            var cancel = MakeButton("ביטול");
+            cancel.DialogResult = DialogResult.Cancel;
+            var all = MakeButton("סמן הכל");
+            var none = MakeButton("בטל הכל");
             all.Click += (s, e) => SetAll(true);
             none.Click += (s, e) => SetAll(false);
             buttons.Controls.AddRange(new Control[] { ok, cancel, all, none });
@@ -105,17 +125,60 @@ namespace ParcelDocs.Plugin
                 }
             };
 
-            Controls.Add(_items);
-            Controls.Add(warnings);
-            Controls.Add(buttons);
-            Controls.Add(projectPanel);
-            Controls.Add(header);
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 5 };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            layout.RowStyles.Add(hasWarnings ? new RowStyle(SizeType.Absolute, 90) : new RowStyle(SizeType.Absolute, 0));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.Controls.Add(header, 0, 0);
+            layout.Controls.Add(projectPanel, 0, 1);
+            layout.Controls.Add(_items, 0, 2);
+            layout.Controls.Add(warnings, 0, 3);
+            layout.Controls.Add(buttons, 0, 4);
+            Controls.Add(layout);
+
+            Shown += (s, e) =>
+            {
+                _project.Focus();
+                _project.SelectAll();
+            };
         }
 
         public string ProjectName => _project.Text.Trim();
 
         public IList<string> SelectedIds =>
             _items.CheckedItems.Cast<ListViewItem>().Select(item => (string)item.Tag).ToList();
+
+        private static Button MakeButton(string text)
+        {
+            return new Button
+            {
+                Text = text,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                MinimumSize = new Size(110, 32),
+                Padding = new Padding(10, 2, 10, 2),
+            };
+        }
+
+        /// <summary>Each column as wide as the wider of its header and its content.</summary>
+        private void FitColumns()
+        {
+            foreach (ColumnHeader column in _items.Columns)
+            {
+                column.AutoResize(ColumnHeaderAutoResizeStyle.HeaderSize);
+                int header = column.Width;
+                if (_items.Items.Count > 0)
+                {
+                    column.AutoResize(ColumnHeaderAutoResizeStyle.ColumnContent);
+                }
+                column.Width = Math.Max(column.Width, header);
+            }
+            ColumnHeader name = _items.Columns[2];
+            name.Width = Math.Min(name.Width, MaxNameColumnWidth);
+        }
 
         private void AddItem(string id, string kind, string number, string name, string date, int documents, string note)
         {
@@ -126,6 +189,7 @@ namespace ParcelDocs.Plugin
             {
                 Tag = id,
                 Checked = true,
+                ToolTipText = note ?? "",
             };
             if (!string.IsNullOrEmpty(note))
             {
