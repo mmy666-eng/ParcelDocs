@@ -47,6 +47,6 @@ ParcelDocs: פוליליין סגור ב-AutoCAD/ZWCAD (ITM, EPSG:2039) ← זי
 - שירות: `.venv\Scripts\python -m app.main` (FastAPI על `127.0.0.1:8765` בלבד)
 
 מתוך `plugin/ParcelDocs.Plugin/` (.NET SDK 8, יעד net48):
-- בנייה ל-AutoCAD 2024: `dotnet build -c AutoCAD` → `bin\x64\AutoCAD\net48\ParcelDocs.Plugin.dll`
+- בנייה ל-AutoCAD 2024: `dotnet build -c AutoCAD` → `bin\AutoCAD\net48\ParcelDocs.Plugin.dll`
 - טעינה ב-AutoCAD: `NETLOAD` על ה-DLL, ואז `PARCELDOCS`. השירות צריך לרוץ לפני כן.
 - נתיב ה-DLL של AutoCAD: `C:\Program Files\Autodesk\AutoCAD 2024\` (אפשר לשנות עם `-p:AutoCADDir=...`). ההפניות הן `Private=False`, כלומר לא מועתקות לתיקיית הפלט.

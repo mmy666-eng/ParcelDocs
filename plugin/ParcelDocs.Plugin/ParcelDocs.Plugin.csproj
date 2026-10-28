@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    One project, two CAD hosts (PRD §5.4):
+      dotnet build -c AutoCAD   (AutoCAD 2024, .NET Framework 4.8)
+      dotnet build -c ZWCAD     (phase 4)
+    Any configuration other than ZWCAD builds against AutoCAD.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <OutputType>Library</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <LangVersion>10.0</LangVersion>
+    <Configurations>AutoCAD;ZWCAD</Configurations>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <Optimize>true</Optimize>
+    <RootNamespace>ParcelDocs.Plugin</RootNamespace>
+    <AssemblyName>ParcelDocs.Plugin</AssemblyName>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Version>0.1.0</Version>
+    <AutoCADDir Condition="'$(AutoCADDir)' == ''">C:\Program Files\Autodesk\AutoCAD 2024\</AutoCADDir>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'ZWCAD'">
+    <DefineConstants>$(DefineConstants);ZWCAD</DefineConstants>
+  </PropertyGroup>
+
+  <!-- Host assemblies are loaded by AutoCAD itself: never copy them next to the plugin. -->
+  <ItemGroup Condition="'$(Configuration)' != 'ZWCAD'">
+    <Reference Include="accoremgd">
+      <HintPath>$(AutoCADDir)accoremgd.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="acdbmgd">
+      <HintPath>$(AutoCADDir)acdbmgd.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="acmgd">
+      <HintPath>$(AutoCADDir)acmgd.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- ZWCAD references (ZwManaged.dll, ZwDatabaseMgd.dll) are added in phase 4. -->
+
+  <ItemGroup>
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Runtime.Serialization" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>
