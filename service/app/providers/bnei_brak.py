@@ -15,18 +15,26 @@ from shapely.geometry.base import BaseGeometry
 
 from app.download.downloader import HttpClient
 from app.geo.cadastre import GovMapCadastre
-from app.models import Address, Document, DocumentKind, Plan
+from app.models import Address, Document, DocumentKind, Permit, Plan
 
 log = logging.getLogger(__name__)
 
 SOURCE = "bnei_brak"
 IN_FORCE = "בתוקף"
+CITY_CODE = 6100  # בני ברק in GetYeshuvim
 
 _NOT_FOUND_MARKER = "לא ניתן להציג את המידע המבוקש"
+_NO_RESULTS_MARKER = "לא אותרו תוצאות"
 _PARCELLATED_MARKER = "עברה פרצלציה"
 _GET_GUSH = re.compile(r"getGush\((\d+),\s*(\d+)\)")
 _GET_TABA = re.compile(r"getTaba\((\d+)\)")
+_GET_REQUEST = re.compile(r"getRequest\((\d+)\)")
+_RESULTS_TOTAL = re.compile(r"מתוך\s*([\d,]+)")
+_PERMIT_IN_TITLE = re.compile(r"היתר\s+(\d+)")
+_DATE_IN_TITLE = re.compile(r"תאריך\s+(\d{1,2}/\d{1,2}/\d{4})")
+_STREET_ITEM = re.compile(r"<label>([^<]*)</label>\s*<v>(\d+)</v>\s*<k>(\d*)</k>")
 _FINAL_VERSION = ("לתוקף", "בתוקף")
+_SOAP_NS = "https://handasi.complot.co.il"
 
 
 class PlanRef(BaseModel):
@@ -59,10 +67,13 @@ class TabaFile(BaseModel):
 
 
 class ComplotClient:
-    def __init__(self, http: HttpClient, base_url: str, site_id: int) -> None:
+    def __init__(
+        self, http: HttpClient, base_url: str, site_id: int, ws_url: str | None = None
+    ) -> None:
         self._http = http
         self._base_url = base_url
         self._site_id = site_id
+        self._ws_url = ws_url
 
     def gush_file(self, gush: int, helka: int) -> GushFile | None:
         html = self._xpa("GetGushFile", g=gush, h=helka)
@@ -72,10 +83,64 @@ class ComplotClient:
         html = self._xpa("GetTabaFile", n=complot_id)
         return parse_taba_file(html, complot_id)
 
-    def _xpa(self, prgname: str, **params: int | str) -> str:
+    def requests_by_parcel(self, gush: int, helka: int) -> list[Permit]:
+        # Argument lists are spelled exactly as the city site sends them (sources.md §5.3).
+        html = self._xpa(
+            "GetBakashotByGush",
+            "siteId,grp,t,g,h,l",
+            grp=0,
+            t=0,
+            g=gush,
+            h=helka,
+            l="true",
+        )
+        return parse_request_list(html)
+
+    def requests_by_address(self, street_code: int, house: str) -> list[Permit]:
+        html = self._xpa(
+            "GetBakashotByAddress",
+            "siteId,grp,t,c,s,h,l",
+            grp=0,
+            t=0,
+            c=CITY_CODE,
+            s=street_code,
+            h=house,
+            l="true",
+        )
+        return parse_request_list(html)
+
+    def request_file(self, request_number: str) -> Permit | None:
+        html = self._xpa("GetBakashaFile", b=request_number)
+        return parse_request_file(html, request_number)
+
+    def streets(self) -> dict[str, int]:
+        if self._ws_url is None:
+            raise RuntimeError("streets() needs the Complot web service URL")
+        envelope = (
+            '<?xml version="1.0" encoding="utf-8"?>'
+            '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body>'
+            f'<GetStreets xmlns="{_SOAP_NS}"><site_id>{self._site_id}</site_id></GetStreets>'
+            "</soap:Body></soap:Envelope>"
+        )
+        response = self._http.post(
+            self._ws_url,
+            content=envelope.encode("utf-8"),
+            headers={
+                "Content-Type": "text/xml; charset=utf-8",
+                "SOAPAction": f'"{_SOAP_NS}/GetStreets"',
+            },
+        )
+        return parse_streets(response.content.decode("utf-8-sig", errors="replace"))
+
+    def _xpa(self, prgname: str, arguments: str | None = None, **params: int | str) -> str:
         args = {"siteid": self._site_id, **params}
         query = urlencode(
-            {"appname": "cixpa", "prgname": prgname, **args, "arguments": ",".join(args)},
+            {
+                "appname": "cixpa",
+                "prgname": prgname,
+                **args,
+                "arguments": arguments or ",".join(args),
+            },
             safe=",",
         )
         response = self._http.get(f"{self._base_url}?{query}")
@@ -149,6 +214,45 @@ class BneiBrakPlansProvider:
 
     def get_documents(self, plan: Plan) -> list[Document]:
         return select_documents(plan.documents)
+
+
+class BneiBrakPermitsProvider:
+    def __init__(self, client: ComplotClient) -> None:
+        self._client = client
+        self._street_codes: dict[str, int] | None = None
+
+    def find_by_parcel(self, gush: int, helka: int) -> list[Permit]:
+        return self._client.requests_by_parcel(gush, helka)
+
+    def find_by_address(self, street: str, number: str) -> list[Permit]:
+        code = self.street_code(street)
+        if code is None:
+            log.warning("Complot: unknown street %r", street)
+            return []
+        return self._client.requests_by_address(code, number)
+
+    def street_code(self, street: str) -> int | None:
+        if self._street_codes is None:
+            self._street_codes = self._client.streets()
+        return self._street_codes.get(street.strip())
+
+    def details(self, permit: Permit) -> Permit:
+        """The request page: permit number and date, description, status and documents."""
+        detail = self._client.request_file(permit.request_number)
+        if detail is None:
+            return permit
+        listed = permit.model_dump(exclude_none=True, exclude_defaults=True)
+        found = detail.model_dump(exclude_none=True, exclude_defaults=True)
+        return Permit.model_validate(listed | found)
+
+    def get_documents(self, permit: Permit) -> list[Document]:
+        return [d for d in permit.documents if d.kind is not None]
+
+
+def is_granted(permit: Permit) -> bool:
+    return bool(permit.permit_number) or any(
+        d.kind == DocumentKind.PERMIT for d in permit.documents
+    )
 
 
 def _to_plan(taba: TabaFile, ref: PlanRef | None) -> Plan:
@@ -291,6 +395,142 @@ def parse_taba_file(html: str, complot_id: int) -> TabaFile | None:
         yalkut_date=yalkut_date,
         documents=documents,
     )
+
+
+def classify_permit_document(title: str, subject: str | None) -> DocumentKind | None:
+    text = f"{subject or ''} {title}"
+    if "גרמושקה" in text or "תשריט" in text:
+        return DocumentKind.MAP
+    if (subject or "").strip() == "היתר":
+        return DocumentKind.PERMIT
+    return None
+
+
+def parse_request_list(html: str) -> list[Permit]:
+    if _NO_RESULTS_MARKER in html or _NOT_FOUND_MARKER in html:
+        return []
+    total = _RESULTS_TOTAL.search(html)
+    soup = BeautifulSoup(html, "html.parser")
+    permits = []
+    for row in soup.select("tbody tr"):
+        match = _GET_REQUEST.search(str(row))
+        cells = [_text(td) for td in row.find_all("td")]
+        if match is None or len(cells) < 8:
+            continue
+        permits.append(
+            Permit(
+                request_number=match.group(1),
+                building_file=cells[2] or None,
+                request_date=_parse_date(cells[3]),
+                address=cells[5] or None,
+                gush=_int(cells[6]),
+                helka=_int(cells[7]),
+                has_documents="showRequestDocs(" in str(row),
+            )
+        )
+    if total and int(total.group(1).replace(",", "")) > len(permits):
+        log.warning(
+            "Complot: list shows %d of %s requests; narrow the search", len(permits), total[1]
+        )
+    return permits
+
+
+def parse_request_file(html: str, request_number: str) -> Permit | None:
+    if _NOT_FOUND_MARKER in html:
+        return None
+    soup = BeautifulSoup(html, "html.parser")
+
+    info: dict[str, str] = {}
+    for cells in _rows(soup.find(id="info-main")):
+        if len(cells) >= 2:
+            info.setdefault(cells[0], cells[1])
+    header: dict[str, str] = {}
+    for label in soup.select("div.result-title"):
+        value = label.find_next_sibling("div")
+        if value is not None:
+            header.setdefault(_text(label).rstrip(":").strip(), _text(value))
+
+    status = None
+    for cells in _rows(soup.find(id="events")):
+        if len(cells) >= 2 and cells[0] == "נוכחי":
+            status = cells[1]
+    # Columns: (link), gush, helka, migrash, land use.
+    parcel_rows = _rows(soup.find(id="gushim-helkot"))
+    first = parcel_rows[0] if parcel_rows and len(parcel_rows[0]) >= 3 else None
+    gush = _int(first[1]) if first else None
+    helka = _int(first[2]) if first else None
+
+    documents = []
+    archive = soup.find(id="archive")
+    if isinstance(archive, Tag):
+        for row in archive.select("tbody tr"):
+            link = row.find("a", href=True)
+            cells = [_text(td) for td in row.find_all("td")]
+            if link is None or len(cells) < 3:
+                continue
+            title, subject = _text(link), cells[1]
+            documents.append(
+                Document(
+                    title=title,
+                    url=str(link["href"]),
+                    source=SOURCE,
+                    subject=subject,
+                    kind=classify_permit_document(title, subject),
+                    date=_parse_date(cells[2]),
+                )
+            )
+
+    permit_number = info.get("מספר היתר") or None
+    permit_date = _parse_date(info.get("תאריך הפקת היתר", ""))
+    for doc in documents:
+        if doc.kind == DocumentKind.PERMIT:
+            if permit_number is None and (m := _PERMIT_IN_TITLE.search(doc.title)):
+                permit_number = m.group(1)
+            if permit_date is None and (m := _DATE_IN_TITLE.search(doc.title)):
+                permit_date = _parse_date(m.group(1))
+
+    description = " – ".join(
+        part for part in (info.get("תיאור הבקשה"), _section_text(soup, "mahut")) if part
+    )
+    return Permit(
+        request_number=request_number,
+        permit_number=permit_number,
+        date=permit_date,
+        request_date=_parse_date(header.get("תאריך הגשה", "")),
+        description=description or None,
+        status=status,
+        request_type=info.get("סוג הבקשה") or None,
+        building_file=info.get("מספר תיק בניין") or None,
+        address=header.get("כתובת") or None,
+        gush=gush,
+        helka=helka,
+        has_documents=bool(documents),
+        documents=documents,
+    )
+
+
+def parse_streets(xml: str) -> dict[str, int]:
+    return {
+        label.strip(): int(code)
+        for label, code, city in _STREET_ITEM.findall(xml)
+        if city in ("", str(CITY_CODE))
+    }
+
+
+def _section_text(soup: BeautifulSoup, section_id: str) -> str | None:
+    section = soup.find(id=section_id)
+    if not isinstance(section, Tag):
+        return None
+    body = section.find("table") or section
+    text = _text(body).replace("‏", "").strip()
+    return text or None
+
+
+def _int(text: str) -> int | None:
+    try:
+        return int(text)
+    except ValueError:
+        return None
 
 
 def _rows(section: object) -> list[list[str]]:

@@ -1,4 +1,4 @@
-"""Command line run without CAD (PRD §3): approved plans for a gush/helka (phase 1)."""
+"""Command line run without CAD (PRD §3): approved plans and building permits for a gush/helka."""
 
 import argparse
 import logging
@@ -11,9 +11,15 @@ from app.config import Config, load_config
 from app.download.cache import DownloadCache
 from app.download.downloader import Downloader, HttpClient, SourceError
 from app.geo.cadastre import GovMapCadastre, parcel_geometry
-from app.models import Address, ManifestEntry, Parcel, Plan
+from app.models import Address, Document, ManifestEntry, Parcel, Permit, Plan
 from app.output.organizer import OutputOrganizer
-from app.providers.bnei_brak import BneiBrakPlansProvider, ComplotClient, GushFile
+from app.providers.bnei_brak import (
+    BneiBrakPermitsProvider,
+    BneiBrakPlansProvider,
+    ComplotClient,
+    GushFile,
+    is_granted,
+)
 from app.providers.iplan import IplanPlansProvider
 
 log = logging.getLogger("parceldocs")
@@ -25,6 +31,8 @@ MANUAL_CITY_UNAVAILABLE = 'המערכת העירונית לא זמינה – ל�
 CITY_SOURCE = "bnei_brak"
 CITY_DISABLED = 'המערכת העירונית (Complot) מושבתת ב-config – תב"עות עירוניות ומסמכים לא נבדקו'
 CITY_UNAVAILABLE = 'המערכת העירונית (Complot) לא זמינה – תב"עות עירוניות ומסמכים לא נבדקו'
+PERMITS_NOT_CHECKED = "היתרי בנייה לא נבדקו – המערכת העירונית לא זמינה"
+MANUAL_NOT_SCANNED = "לא סרוק – לפנות לארכיון"
 
 _NATIONAL_NUMBER = re.compile(r"\d{3}-\d{7}")
 _LOCAL_NUMBER = re.compile(r"(?:בב/)?((?:מק/)?\d+(?:/[֐-׿\d]+)+)")
@@ -74,6 +82,46 @@ def merge_plans(
     return merged
 
 
+def collect_permits(
+    provider: BneiBrakPermitsProvider,
+    parcels: list[tuple[int, int]],
+    addresses: list[Address],
+) -> list[Permit]:
+    """Granted permits by parcel and by address (PRD §4.4), one entry per permit number.
+
+    Old permits are often filed under the parcel number from before parcellation, so
+    callers pass both the queried parcel and its municipal child parcels.
+    """
+    requests: dict[str, Permit] = {}
+    for gush, helka in dict.fromkeys(parcels):
+        for permit in provider.find_by_parcel(gush, helka):
+            requests.setdefault(permit.request_number, permit)
+    for address in addresses:
+        for permit in provider.find_by_address(address.street, address.number):
+            requests.setdefault(permit.request_number, permit)
+
+    permits: dict[str, Permit] = {}
+    for listed in requests.values():
+        permit = provider.details(listed)
+        if not is_granted(permit):
+            log.info("request %s has no permit, skipped", permit.request_number)
+            continue
+        key = permit.permit_number or f"request:{permit.request_number}"
+        if key in permits:
+            log.info(
+                "permit %s appears in requests %s and %s",
+                key,
+                permits[key].request_number,
+                permit.request_number,
+            )
+            continue
+        if not provider.get_documents(permit):
+            permit.manual_action = MANUAL_NOT_SCANNED
+        permits[key] = permit
+    log.info("Complot: %d requests, %d granted permits", len(requests), len(permits))
+    return list(permits.values())
+
+
 def run(
     config: Config,
     gush: int,
@@ -117,8 +165,14 @@ def _run(
     log.info("run: project=%s gush=%d helka=%d dry_run=%s", project, gush, helka, dry_run)
     warnings: list[str] = []
     cadastre = GovMapCadastre(http, config.sources.govmap_wfs)
-    complot = ComplotClient(http, config.sources.complot_base, config.sources.complot_site_id)
+    complot = ComplotClient(
+        http,
+        config.sources.complot_base,
+        config.sources.complot_site_id,
+        config.sources.complot_ws,
+    )
     city = BneiBrakPlansProvider(complot, cadastre, config.citywide_plans)
+    city_permits = BneiBrakPermitsProvider(complot)
     iplan = IplanPlansProvider(http, config.sources.iplan_plans_layer)
 
     parcel = cadastre.get_parcel(gush, helka)
@@ -181,26 +235,47 @@ def _run(
             plan.manual_action = MANUAL_NO_DOCUMENTS
         selections[id(plan)] = selected
 
+    permits: list[Permit] = []
+    if city_available:
+        addresses = [a for p in parcels for a in p.addresses]
+        query_parcels = [(gush, helka), *((p.gush, p.helka) for p in parcels)]
+        try:
+            permits = collect_permits(city_permits, query_parcels, addresses)
+        except SourceError as exc:
+            log.error("Complot unavailable: %s", exc)
+            warnings.append(f"{PERMITS_NOT_CHECKED}: {exc}")
+    else:
+        warnings.append(PERMITS_NOT_CHECKED)
+
+    downloads: list[tuple[str, Document, Path]] = []
+    for plan in plans:
+        documents = selections.get(id(plan), [])
+        for doc, path in zip(documents, organizer.document_paths(plan, documents), strict=True):
+            downloads.append((plan.number, doc, path))
+    for permit in permits:
+        documents = city_permits.get_documents(permit)
+        label = f"היתר {permit.permit_number or permit.request_number}"
+        for doc, path in zip(
+            documents, organizer.permit_document_paths(permit, documents), strict=True
+        ):
+            downloads.append((label, doc, path))
+
     files: list[ManifestEntry] = []
     if not dry_run:
         cache = DownloadCache(config.cache_db)
         downloader = Downloader(http, cache)
         try:
-            for plan in plans:
-                documents = selections.get(id(plan), [])
-                for doc, path in zip(
-                    documents, organizer.document_paths(plan, documents), strict=True
-                ):
-                    try:
-                        files.append(downloader.download(doc.url, path, doc.source, organizer.root))
-                    except SourceError as exc:
-                        log.error("download failed: %s", exc)
-                        warnings.append(f"הורדה נכשלה: {plan.number} – {doc.title}")
+            for label, doc, path in downloads:
+                try:
+                    files.append(downloader.download(doc.url, path, doc.source, organizer.root))
+                except SourceError as exc:
+                    log.error("download failed: %s", exc)
+                    warnings.append(f"הורדה נכשלה: {label} – {doc.title}")
         finally:
             cache.close()
-        organizer.write_manifest(project, gush, helka, parcels, plans, files, warnings)
+        organizer.write_manifest(project, gush, helka, parcels, plans, files, warnings, permits)
 
-    _print_summary(parcels, plans, selections, files, warnings, organizer, dry_run)
+    _print_summary(parcels, plans, selections, permits, files, warnings, organizer, dry_run)
     return 0
 
 
@@ -208,6 +283,7 @@ def _print_summary(
     parcels: list[Parcel],
     plans: list[Plan],
     selections: dict[int, list],
+    permits: list[Permit],
     files: list[ManifestEntry],
     warnings: list[str],
     organizer: OutputOrganizer,
@@ -222,6 +298,13 @@ def _print_summary(
         docs = len(selections.get(id(plan), []))
         note = f"  ⚠ {plan.manual_action}" if plan.manual_action else f"  {docs} מסמכים"
         print(f"  {plan.number:<16} {when}  {plan.name[:50]}{note}")
+    print(f"\nהיתרי בנייה ({len(permits)}):")
+    for permit in permits:
+        when = str(permit.date or permit.request_date or "-")
+        docs = sum(1 for d in permit.documents if d.kind)
+        note = f"  ⚠ {permit.manual_action}" if permit.manual_action else f"  {docs} מסמכים"
+        description = (permit.description or "")[:40]
+        print(f"  היתר {permit.permit_number or '-':<8} {when}  {description}{note}")
     for warning in warnings:
         print(f"⚠ {warning}")
     if dry_run:
@@ -250,7 +333,9 @@ def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")
-    parser = argparse.ArgumentParser(prog="parceldocs", description='ParcelDocs – תב"עות לחלקה')
+    parser = argparse.ArgumentParser(
+        prog="parceldocs", description='ParcelDocs – תב"עות והיתרים לחלקה'
+    )
     parser.add_argument("--gush", type=int, required=True)
     parser.add_argument("--helka", type=int, required=True)
     parser.add_argument("--project", default="פרויקט", help="שם הפרויקט לתיקיית הפלט")

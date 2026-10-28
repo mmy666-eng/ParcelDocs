@@ -4,10 +4,11 @@ import json
 from datetime import date, datetime
 from pathlib import Path
 
-from app.models import Document, DocumentKind, ManifestEntry, Parcel, Plan
+from app.models import Document, DocumentKind, ManifestEntry, Parcel, Permit, Plan
 from app.utils.filenames import long_path, safe_name
 
 SUMMARY_DIR = "00_סיכום"
+PERMITS_DIR = "01_היתרי_בניה"
 PLANS_DIR = "02_תבעות"
 LOG_DIR = "99_לוג"
 APPENDICES_DIR = "נספחים"
@@ -23,11 +24,12 @@ class OutputOrganizer:
     def __init__(self, base_dir: Path, project: str, gush: int, helka: int, day: date) -> None:
         self.root = base_dir / project_folder_name(project, gush, helka, day)
         self.summary_dir = self.root / SUMMARY_DIR
+        self.permits_dir = self.root / PERMITS_DIR
         self.plans_dir = self.root / PLANS_DIR
         self.log_dir = self.root / LOG_DIR
 
     def create(self) -> None:
-        for folder in (self.summary_dir, self.plans_dir, self.log_dir):
+        for folder in (self.summary_dir, self.permits_dir, self.plans_dir, self.log_dir):
             long_path(folder).mkdir(parents=True, exist_ok=True)
 
     @property
@@ -63,6 +65,30 @@ class OutputOrganizer:
                 paths.append(folder / f"{kind.value}_{counts[kind]}.pdf")
         return paths
 
+    def permit_dir(self, permit: Permit) -> Path:
+        """<שנה>_היתר_<מספר>, or <שנה>_בקשה_<מספר> when the permit number is unknown."""
+        when = permit.date or permit.request_date
+        year = f"{when.year}" if when else "ללא_תאריך"
+        if permit.permit_number:
+            name = f"{year}_היתר_{permit.permit_number}"
+        else:
+            name = f"{year}_בקשה_{permit.request_number}"
+        return self.permits_dir / safe_name(name)
+
+    def permit_document_paths(self, permit: Permit, documents: list[Document]) -> list[Path]:
+        """היתר.pdf (היתר_2.pdf, ...) and תשריט_<n>.pdf, as in PRD §4.5."""
+        folder = self.permit_dir(permit)
+        permits = maps = 0
+        paths = []
+        for doc in documents:
+            if doc.kind == DocumentKind.MAP:
+                maps += 1
+                paths.append(folder / f"תשריט_{maps}.pdf")
+            else:
+                permits += 1
+                paths.append(folder / ("היתר.pdf" if permits == 1 else f"היתר_{permits}.pdf"))
+        return paths
+
     def write_manifest(
         self,
         project: str,
@@ -72,6 +98,7 @@ class OutputOrganizer:
         plans: list[Plan],
         files: list[ManifestEntry],
         warnings: list[str],
+        permits: list[Permit] | None = None,
     ) -> Path:
         manifest = {
             "project": project,
@@ -83,6 +110,7 @@ class OutputOrganizer:
                 | {"documents": [d.model_dump(mode="json") for d in p.documents]}
                 for p in plans
             ],
+            "permits": [p.model_dump(mode="json") for p in permits or []],
             "files": [f.model_dump(mode="json") for f in files],
             "warnings": warnings,
         }

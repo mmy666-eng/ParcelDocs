@@ -1,0 +1,438 @@
+<style>
+  .btn-header:after {
+    font-family: 'Glyphicons Halflings';
+    content: '\e114';
+    float: left;
+    margin-right: 15px;
+  }
+
+  .btn-header.collapsed:after {
+    content: '\e079';
+  }
+
+  .btn-header,
+  .btn-header:hover,
+  .btn-header:focus {
+    border-radius: 0;
+    border-top: 1px solid black;
+    font-weight: bold;
+    font-size: 16px;
+    text-align: right;
+    width: 100%;
+  }
+
+  .spn {
+    padding-right: 3px;
+  }
+  .tr-hidden {
+    display: none;
+  }
+</style>
+<script>
+  $.getScript(siteBaseURL + 'handasi2016/Scripts/Complot/Request/min/request-result.min.js');
+</script>
+<div class="top-nav-bar" id="top-navbar-id">
+<h2 translatable-text="">פרטי בקשה להיתר</h2>
+<hr/>
+<section>
+<div class="row" id="result-title-div-id">
+<div class="col-sm-4">
+<div class="result-title top-navbar-info-desc" translatable-text="">מספר הבקשה:</div>
+<div class="top-navbar-info-desc">20177</div>
+</div>
+<div class="col-sm-4">
+<div class="result-title top-navbar-info-desc" translatable-text="">כתובת:</div>
+<div class="top-navbar-info-desc">הרב קוק 33 בני ברק</div>
+</div>
+<div class="col-sm-4">
+<div class="result-title top-navbar-info-desc" translatable-text="">תאריך הגשה:</div>
+<div class="top-navbar-info-desc">01/03/1989</div>
+</div>
+</div>
+</section>
+<hr/>
+<div class="row hidden-xs" id="btn-group-row-id">
+<div aria-label="קישור לאיזור בדף" class="btn-group" id="btn-group-id" role="navigation" style="width: 100%">
+<input class="btn btn-primary btn-responsive" onclick="scrollToElement('#info-main')" role="link" translatable-value="" type="button" value="מידע כללי"/>
+<input class="btn btn-primary btn-responsive" onclick="scrollToElement('#mahut')" role="link" translatable-value="" type="button" value="מהות"/>
+<input class="btn btn-primary btn-responsive" onclick="scrollToElement('#baaley-inyan')" role="link" translatable-value="" type="button" value="בעלי עניין"/>
+<input class="btn btn-primary btn-responsive" onclick="scrollToElement('#gushim-helkot')" role="link" translatable-value="" type="button" value="גוש וחלקה"/>
+<input class="btn btn-primary btn-responsive" onclick="scrollToElement('#events')" role="link" translatable-value="" type="button" value="אירועים"/>
+<input class="btn btn-primary btn-responsive" onclick="scrollToElement('#vaada')" role="link" translatable-value="" type="button" value="ישיבות"/>
+<input class="btn btn-primary btn-responsive" onclick="scrollToElement('#requirments')" role="link" translatable-value="" type="button" value="דרישות"/>
+<input class="btn btn-primary btn-responsive" onclick="scrollToElement('#archive')" role="link" translatable-value="" type="button" value="ארכיב מסמכים"/>
+</div>
+</div>
+</div>
+<nav class="navbar navbar-default navbar-fixed-top" id="sticky-nav-bar">
+<div class="container-fluid row">
+<div class="dropdown dropdown-pos">
+<button class="btn dropdown-toggle col-md-1 col-sm-1 col-xs-1 hidden-print" data-toggle="dropdown" id="dropdownMenu1">
+<span class="glyphicon glyphicon-menu-hamburger"></span>
+<span translatable-text="">ניווט</span>
+</button>
+<div class="hidden-xs" id="navbar-titles-id">
+<div class="navbar-titles-container">
+<div class="navbar-title">
+<h5 class="result-title" translatable-text="">מספר הבקשה:</h5>
+<h5>20177</h5>
+</div>
+<!-- <div class="col-md-3 col-sm-3 margin-top-navbar-info">
+            <h5>20177</h5>
+          </div> -->
+<div class="navbar-title">
+<h5 class="result-title" translatable-text="">כתובת:</h5>
+<h5>הרב קוק 33 בני ברק</h5>
+</div>
+<!-- <div class="col-md-4 col-sm-3 margin-top-navbar-info">
+            <h5>הרב קוק 33 בני ברק</h5>
+          </div> -->
+</div>
+</div>
+<div class="visible-xs" id="navbar-xs-id">
+<div class="result-title">
+<h2>
+<span translatable-text="">פרטי בקשה</span>
+            20177
+          </h2>
+</div>
+</div>
+<ul aria-labelledby="dropdownMenu1" class="dropdown-menu" id="dropdown-menu-nav-id">
+<li>
+<input class="btn li-max-width" onclick="scrollToElement('#info-main')" role="link" translatable-value="" type="button" value="מידע כללי"/>
+</li>
+<li>
+<input class="btn li-max-width" onclick="scrollToElement('#mahut')" role="link" translatable-value="" type="button" value="מהות"/>
+</li>
+<li>
+<input class="btn li-max-width" onclick="scrollToElement('#baaley-inyan')" role="link" translatable-value="" type="button" value="בעלי עניין"/>
+</li>
+<li>
+<input class="btn li-max-width" onclick="scrollToElement('#gushim-helkot')" role="link" translatable-value="" type="button" value="גוש וחלקה"/>
+</li>
+<li>
+<input class="btn li-max-width" onclick="scrollToElement('#events')" role="link" translatable-value="" type="button" value="אירועים"/>
+</li>
+<li>
+<input class="btn li-max-width" onclick="scrollToElement('#vaada')" role="link" translatable-value="" type="button" value="ישיבות"/>
+</li>
+<li>
+<input class="btn li-max-width" onclick="scrollToElement('#requirments')" role="link" translatable-value="" type="button" value="דרישות"/>
+</li>
+<li>
+<input class="btn li-max-width" onclick="scrollToElement('#archive')" role="link" translatable-value="" type="button" value="ארכיב מסמכים"/>
+</li>
+</ul>
+</div>
+</div>
+</nav>
+<div class="row" id="info-main" tabindex="-1">
+<div>
+<h3 class="result-title result-title-bottom" translatable-text="">מידע כללי</h3>
+</div>
+<table class="table table-condensed" role="presentation">
+<tbody>
+<tr>
+<td class="title" translatable-text="">מספר תיק בניין</td>
+<td>
+<a href="javascript:getBuilding(61231012)">61231012</a>
+</td>
+</tr>
+<tr>
+<td class="title" translatable-text="">מספר הבקשה ברישוי זמין</td>
+<td></td>
+</tr>
+<tr>
+<td class="title" translatable-text="">סוג הבקשה</td>
+<td>בקשה להיתר</td>
+</tr>
+<tr>
+<td class="title" translatable-text="">שימוש עיקרי</td>
+<td>בית ספר</td>
+</tr>
+<tr>
+<td class="title" translatable-text="">תיאור הבקשה</td>
+<td>תוספת בניה</td>
+</tr>
+<tr>
+<td class="title" translatable-text="">מספר היתר</td>
+<td>9545</td>
+</tr>
+<tr>
+<td class="title" translatable-text="">תאריך הפקת היתר</td>
+<td>23/03/1989</td>
+</tr>
+<tr>
+<td class="title" translatable-text="">שטח עיקרי</td>
+<td></td>
+</tr>
+<tr>
+<td class="title" translatable-text="">שטח שירות</td>
+<td></td>
+</tr>
+<tr>
+<td class="title" translatable-text="">סך מספר יחידות דיור המבוקשות</td>
+<td></td>
+</tr>
+<tr>
+<td class="title" translatable-text="">קישור לאתר הגיאוגרפי</td>
+<td>
+<a href="https://v5.gis-net.co.il/v5api/Home/Focus?Customer=6100&amp;FocusType=3&amp;Where=6123,1012&amp;AnswerType=1" target="_blank">
+<span class="glyphicon glyphicon-map-marker"></span> <span translatable-text="">התמקדות</span>
+</a>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="row" id="mahut" tabindex="-1">
+<div>
+<h3 class="result-title result-title-bottom" translatable-text="">מהות הבקשה</h3>
+</div>
+<table class="table table-condensed" role="presentation">
+<tbody>
+<tr>
+<td>‏תוספת 2 כתות גן</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="row" id="baaley-inyan" tabindex="-1">
+<div>
+<div class="btn btn-defailt btn-header collapsed" data-target="#table-baaley-inyan" data-toggle="collapse" id="btn-baaley-inyan" role="button" type="button">
+<span translatable-text="">בעלי עניין</span>
+<span class="spn">(2)</span>
+</div>
+</div>
+<div class="collapse" id="table-baaley-inyan" style="height: 0px">
+<table class="table table-condensed">
+<thead>
+<tr>
+<th class="th-results-header" translatable-text="">סוג בעל עניין</th>
+<th class="th-results-header" translatable-text="">שם בעל עניין</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="title">מבקש</td>
+<td>שם בעל עניין</td>
+</tr>
+<tr>
+<td class="title">עורך</td>
+<td>שם בעל עניין</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="row" id="gushim-helkot" tabindex="-1">
+<div>
+<div class="btn btn-defailt btn-header collapsed" data-target="#table-gushim-helkot" data-toggle="collapse" id="btn-gushim-helkot" role="button" type="button">
+<span translatable-text="">גושים וחלקות</span>
+<span class="spn">(1)</span>
+</div>
+</div>
+<div class="collapse" id="table-gushim-helkot" style="height: 0px">
+<table class="table table-condensed">
+<thead>
+<tr>
+<th class="th-results-header"></th>
+<th class="th-results-header" translatable-text="">מספר גוש</th>
+<th class="th-results-header" translatable-text="">מספר חלקה</th>
+<th class="th-results-header" translatable-text="">מספר מגרש</th>
+<th class="th-results-header" translatable-text="">יעוד</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<a href="javascript:getGush(6123,1012)"><span class="glyphicon glyphicon-modal-window black-font-color"></span></a>
+</td>
+<td>6123</td>
+<td>1012</td>
+<td></td>
+<td>מגורים מיוחד</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="row" id="events" tabindex="-1">
+<div>
+<div class="btn btn-defailt btn-header collapsed" data-target="#table-events" data-toggle="collapse" id="btn-events" role="button" type="button">
+<span translatable-text="">אירועים</span>
+<span class="spn">(1)</span>
+</div>
+</div>
+<div class="collapse" id="table-events" style="height: 0px">
+<table class="table table-condensed">
+<thead>
+<tr>
+<th class="th-results-header" translatable-text="">סוג אירוע</th>
+<th class="th-results-header" translatable-text="">תיאור אירוע</th>
+<th class="th-results-header" translatable-text="">תאריך אירוע</th>
+<th class="th-results-header hidden-on-mobile" translatable-text="">תאריך סיום אירוע</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>נוכחי</td>
+<td>פתיחת תיק בקשה</td>
+<td>01/03/1989</td>
+<td class="hidden-on-mobile">23/03/1989</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="row" id="vaada" tabindex="-1">
+<div>
+<div class="btn btn-defailt btn-header collapsed" data-target="#table-meetings" data-toggle="collapse" id="btn-meetings" role="button" type="button">
+<span translatable-text="">ישיבות והחלטות הועדה</span>
+<span class="spn">(0)</span>
+</div>
+</div>
+<div class="collapse" id="table-meetings" style="height: 0px">
+<table class="table table-condensed">
+<thead>
+<tr>
+<th class="th-results-header"></th>
+<th class="th-results-header" translatable-text="">שם הועדה</th>
+<th class="th-results-header" translatable-text="">מספר ישיבה</th>
+<th class="th-results-header" translatable-text="">תאריך ישיבה</th>
+<th class="th-results-header hidden-on-mobile" translatable-text="">יום בשבוע</th>
+<th class="th-results-header hidden-on-mobile" translatable-text="">שעה</th>
+<th class="th-results-header hidden-on-mobile" translatable-text="">תאריך עברי</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td colspan="7" translatable-text="">לא נמצאו נתונים</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="row" id="requirments" tabindex="-1">
+<div>
+<div class="btn btn-defailt btn-header collapsed" data-target="#table-requirments" data-toggle="collapse" id="btn-requirments" role="button" type="button">
+<span translatable-text="">גליון דרישות</span>
+<span class="spn">(0)</span>
+</div>
+</div>
+<div class="collapse" id="table-requirments" style="height: 0px">
+<table class="table table-condensed">
+<thead>
+<tr>
+<th class="th-results-header" translatable-text="">דרישה</th>
+<th class="th-results-header" translatable-text="">סטטוס</th>
+<th class="th-results-header" translatable-text="">תאריך</th>
+<th class="th-results-header hidden-on-mobile" translatable-text="">
+            הערות
+          </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td colspan="4" translatable-text="">לא נמצאו נתונים</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="row" id="archive" tabindex="-1">
+<div>
+<div class="btn btn-defailt btn-header collapsed" data-target="#table-archive" data-toggle="collapse" id="btn-archive" role="button" type="button">
+<span translatable-text="">ארכיב מסמכים</span>
+<span class="spn">(1)</span>
+</div>
+</div>
+<div class="collapse" id="table-archive" style="height: 0px">
+<table class="table table-condensed">
+<thead>
+<tr>
+<th class="th-results-header" translatable-text="">שם המסמך</th>
+<th class="th-results-header hidden-on-mobile" translatable-text="">נושא</th>
+<th class="th-results-header" translatable-text="">תאריך</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/20/ac7776c2-1deb-411c-93f3-7ba278150d30.pdf" target="_blank"><span class="glyphicon glyphicon-file"></span>
+              בקשה 20177 (א) - היתר 9545 - תאריך 23/3/1989</a>
+</td>
+<td class="hidden-on-mobile">היתר</td>
+<td>08/07/2025</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<br/>
+<button class="btn btn-primary hidden-xs" id="print-btn">
+<span class="glyphicon glyphicon-print"></span>
+   
+  <span translatable-text="">הדפסה</span>
+</button>
+
+   
+
+<button class="btn btn-primary hidden-xs" data-keyboard="true" data-target="#mailModal" data-toggle="modal" id="mail-btn" onclick="$('#mailAddress').val('')">
+<span class="glyphicon glyphicon-envelope"></span>
+   
+  <span translatable-text="">שליחת מייל</span>
+</button>
+<!-- Modal -->
+<div aria-hidden="true" class="modal fade" id="mailModal" role="dialog" tabindex="-1">
+<div class="modal-dialog modal-sm" role="document">
+<div class="modal-content">
+<div class="modal-header">
+<h3 class="modal-title">שליחת מייל</h3>
+</div>
+<div class="modal-body" dir="rtl">
+<form>
+<div class="form-group">
+<label class="col-form-label" for="mailAddress">כתובת המייל:</label>
+<input class="form-control" dir="ltr" id="mailAddress" style="width: 100%" type="text"/>
+</div>
+</form>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-dismiss="modal" type="button">בטל</button>
+<button class="btn btn-primary" onclick="btnSendMail_Clicked(20177)" type="button">שלח</button>
+</div>
+</div>
+</div>
+</div>
+<button class="btn btn-primary scroll-back-to-top" data-placement="left" data-toggle="tooltip" href="#" id="back-to-top" onclick="scrollToElement(MAIN_CONTAINER_SELECTOR,500); return false;" title="חזרה לראש הדף" translatable-bs-title="" translatable-title="">
+<span class="glyphicon glyphicon-chevron-up"></span>
+</button>
+<script>
+
+  $(function() {
+    $(MAIN_CONTAINER_SELECTOR).find("#btn-baaley-inyan,#btn-gushim-helkot,#btn-events,#btn-meetings,#btn-requirments,#btn-agrot,#btn-archive").click();
+  });
+
+  function toggelDrishot(elm, clss) {
+  	var tr = $(elm);
+  	if (tr.hasClass('collapsed')) {
+  		tr.removeClass('collapsed');
+  	} else {
+  		tr.addClass('collapsed');
+  	}
+  	$('#table-requirments').find('tr.' + clss).toggle();
+  }
+
+  function showDrishaRemarks(elm, numerator) {
+  	var siteId = getSiteId();
+  	var urlformat = "{0}ShowRemark&siteid={1}&r={2}&arguments=siteid,r";
+  	var url = urlformat.format(xpaBaseURL, siteId, numerator);
+
+  	goTo(url, '#modalcontent');
+
+  	$("#modal-window").on('hidden.bs.modal', function (e) {
+  		$(elm).focus();
+  	});
+  }
+</script>

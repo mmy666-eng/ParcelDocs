@@ -13,6 +13,7 @@ class SourcesConfig(BaseModel):
     iplan_plans_layer: str
     complot_base: str
     complot_site_id: int
+    complot_ws: str | None = None
 
 
 class Config(BaseModel):

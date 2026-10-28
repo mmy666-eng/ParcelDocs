@@ -37,3 +37,4 @@ sources:
   iplan_plans_layer: https://ags.iplan.gov.il/arcgisiplan/rest/services/PlanningPublic/Xplan/MapServer/1
   complot_base: https://handasi.complot.co.il/magicscripts/mgrqispi.dll
   complot_site_id: 75
+  complot_ws: https://handasi.complot.co.il/wsComplotPublicData/ComplotPublicData.asmx

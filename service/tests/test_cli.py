@@ -17,6 +17,8 @@ COMPLOT_PAGES = {
     ("GetGushFile", "2518"): "complot_gush_6123_2518.html",
     ("GetTabaFile", "3896"): "complot_taba_3896.html",
     ("GetTabaFile", "1201"): "complot_taba_1201.html",
+    ("GetBakashotByGush", "443"): "complot_requests_gush_6123_443.html",
+    ("GetBakashaFile", "195000038"): "complot_request_20177.html",
 }
 
 
@@ -31,6 +33,7 @@ def _config(tmp_path: Path, disabled: list[str]) -> Config:
             iplan_plans_layer="https://ags.iplan.gov.il/arcgisiplan/rest/services/PlanningPublic/Xplan/MapServer/1",
             complot_base="https://handasi.complot.co.il/magicscripts/mgrqispi.dll",
             complot_site_id=75,
+            complot_ws="https://handasi.complot.co.il/wsComplotPublicData/ComplotPublicData.asmx",
         ),
     )
 
@@ -44,8 +47,10 @@ def _handler(hosts: list[str]):
         if host == "ags.iplan.gov.il":
             return httpx.Response(200, content=fixture_bytes("iplan_query.json"))
         if host == "handasi.complot.co.il":
+            if request.url.path.endswith(".asmx"):
+                return httpx.Response(200, content=fixture_bytes("complot_streets.xml"))
             query = parse_qs(urlsplit(str(request.url)).query)
-            key = (query["prgname"][0], query.get("h", query.get("n"))[0])
+            key = (query["prgname"][0], query.get("h", query.get("n", query.get("b")))[0])
             name = COMPLOT_PAGES.get(key)
             if name is None:
                 return httpx.Response(200, text=NOT_FOUND)
@@ -92,6 +97,8 @@ def test_full_run_with_city_system(tmp_path: Path):
     assert f"{roof}/תשריט_2.pdf" in paths
     assert all(len(f["sha256"]) == 64 for f in manifest["files"])
     assert any("פרצלציה" in w for w in manifest["warnings"])
+    assert [p["permit_number"] for p in manifest["permits"]] == ["9545"]
+    assert "01_היתרי_בניה/1989_היתר_9545/היתר.pdf" in paths
     root = tmp_path / "out" / "בדיקה_ג6123_ח443_2026-10-28"
     assert (root / "99_לוג" / "run.log").is_file()
 
@@ -114,4 +121,6 @@ def test_disabled_city_system_is_never_contacted(tmp_path: Path):
     assert len(manifest["plans"]) == 8
     assert all(p["manual_action"] == MANUAL_CITY_UNAVAILABLE for p in manifest["plans"])
     assert manifest["files"] == []
+    assert manifest["permits"] == []
+    assert any("היתרי בנייה לא נבדקו" in w for w in manifest["warnings"])
     assert [(p["gush"], p["helka"]) for p in manifest["parcels"]] == [(6123, 443)]

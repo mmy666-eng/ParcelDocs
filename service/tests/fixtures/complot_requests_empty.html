@@ -1,0 +1,53 @@
+﻿<script>
+  $.getScript(siteBaseURL + 'handasi2016/Scripts/Complot/Request/request-list.js');
+</script>
+
+<div id="request-list-container" style="display: none">
+  <h2 translatable-text>תוצאות איתור בקשות</h2>
+
+    <br />
+  <br />
+    <div role="alert">
+    <span class="glyphicon glyphicon-info-sign"></span>
+    <p translatable-text>מצטערים,</p>
+    <p translatable-text>לא אותרו תוצאות התואמות את מאפייני החיפוש שהוגדרו.</p>
+    <p>
+      <span translatable-text>ניתן</span> <a href="javascript:history.go(-1)" translatable-text>ללחוץ כאן</a>
+      <span translatable-text>על מנת לחזור אחורה ולבצע חיפוש שונה</span>.
+    </p>
+  </div>
+  
+  <div class="hidden-error">ERR_NO_RESULTS</div>
+
+  </div>
+
+<style>
+  .dataTables_wrapper .dataTables_length {
+      float: right;
+  }
+
+  #t4-no-result {
+  	text-align: center;
+  }
+  #t4-no-result img {
+  	width: 80px;
+  	height: 80px;
+  	scale: 150%
+  }
+  #t4-no-result b {
+  	font-size: 25px;
+  }
+
+  @media only screen and (max-width: 768px) {
+  .on-mobile-archive {
+      ;
+  }
+  .on-mobile-t4 {
+      display:none;
+  }
+  #t4-no-result img {
+     scale: 70%;
+  }
+
+  }
+</style>

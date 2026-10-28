@@ -55,8 +55,15 @@ class Permit(BaseModel):
     request_number: str
     permit_number: str | None = None
     date: dt.date | None = None
+    request_date: dt.date | None = None
     description: str | None = None
     status: str | None = None
+    request_type: str | None = None
+    building_file: str | None = None
+    address: str | None = None
+    gush: int | None = None
+    helka: int | None = None
+    has_documents: bool = False
     documents: list[Document] = []
     manual_action: str | None = None
 

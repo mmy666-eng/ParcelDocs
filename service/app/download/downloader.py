@@ -60,8 +60,14 @@ class HttpClient:
     def get(self, url: str, params: dict[str, str] | None = None) -> httpx.Response:
         return self._request("GET", url, params=params)
 
-    def post(self, url: str, data: dict[str, str]) -> httpx.Response:
-        return self._request("POST", url, data=data)
+    def post(
+        self,
+        url: str,
+        data: dict[str, str] | None = None,
+        content: bytes | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> httpx.Response:
+        return self._request("POST", url, data=data, content=content, headers=headers)
 
     def _request(self, method: str, url: str, **kwargs: object) -> httpx.Response:
         host = urlsplit(url).netloc

@@ -1,785 +1,578 @@
-﻿<style>
-  .btn-header:after {
-    font-family: 'Glyphicons Halflings';
-    content: '\e114';
-    float: left;
-    margin-right: 15px;
-  }
-
-  .btn-header.collapsed:after {
-    content: '\e079';
-  }
-
-  .btn-header,
-  .btn-header:hover,
-  .btn-header:focus {
-    border-radius: 0;
-    border-top: 1px solid black;
-    font-weight: bold;
-    font-size: 16px;
-    text-align: right;
-    width: 100%;
-  }
-
-  .spn {
-    padding-right: 3px;
-  }
+<style>
+  .btn-header:after {
+    font-family: 'Glyphicons Halflings';
+    content: '\e114';
+    float: left;
+    margin-right: 15px;
+  }
+
+  .btn-header.collapsed:after {
+    content: '\e079';
+  }
+
+  .btn-header,
+  .btn-header:hover,
+  .btn-header:focus {
+    border-radius: 0;
+    border-top: 1px solid black;
+    font-weight: bold;
+    font-size: 16px;
+    text-align: right;
+    width: 100%;
+  }
+
+  .spn {
+    padding-right: 3px;
+  }
 </style>
-
-<script>
-  $.getScript(siteBaseURL + 'handasi2016/Scripts/Complot/Taba/min/taba-result.min.js');
+<script>
+  $.getScript(siteBaseURL + 'handasi2016/Scripts/Complot/Taba/min/taba-result.min.js');
 </script>
-
 <div class="top-nav-bar" id="top-navbar-id">
-  <h2 translatable-text>פרטי התוכנית</h2>
-  <hr />
-
-  <div class="row" id="result-title-div-id">
-    <div class="col-sm-4">
-      <div class="result-title top-navbar-info-desc" translatable-text>מספר תוכנית:</div>
-      <div class="top-navbar-info-desc">
-        501-0873794
+<h2 translatable-text="">פרטי התוכנית</h2>
+<hr/>
+<div class="row" id="result-title-div-id">
+<div class="col-sm-4">
+<div class="result-title top-navbar-info-desc" translatable-text="">מספר תוכנית:</div>
+<div class="top-navbar-info-desc">
+        501-0873794
       </div>
-    </div>
-    <div class="col-sm-4">
-      <div class="result-title top-navbar-info-desc" translatable-text>סוג התוכנית:</div>
-      <div class="top-navbar-info-desc">
-        תכנית מתאר מקומית
-      </div>
-    </div>
-    <div class="col-sm-4">
-      <div class="result-title top-navbar-info-desc" translatable-text>שם התוכנית:</div>
-      <div class="top-navbar-info-desc">
-        קביעת הוראות לחדרי גג ודירות גג
-      </div>
-    </div>
-  </div>
-  <hr />
-  <div class="row hidden-xs" id="btn-group-row-id">
-    <div class="btn-group" style="width: 100%" id="btn-group-id" role="navigation" aria-label="קישור לאיזור בדף">
-      <input
-        translatable-value
-        role="link"
-        type="button"
-        class="btn btn-primary btn-responsive"
-        onclick="scrollToElement('#plan-main')"
-        value="מידע כללי"
-      />
-      <input
-        translatable-value
-        role="link"
-        type="button"
-        class="btn btn-primary btn-responsive"
-        onclick="scrollToElement('#matarot')"
-        value="מטרות התוכנית"
-      />
-      <input
-        translatable-value
-        role="link"
-        type="button"
-        class="btn btn-primary btn-responsive"
-        onclick="scrollToElement('#baaley-inyan')"
-        value="בעלי עניין"
-      />
-      <input
-        translatable-value
-        role="link"
-        type="button"
-        class="btn btn-primary btn-responsive"
-        onclick="scrollToElement('#shlavey-tochnit')"
-        value="שלבי התוכנית"
-      />
-            <input
-        translatable-value
-        role="link"
-        type="button"
-        class="btn btn-primary btn-responsive"
-        onclick="scrollToElement('#gushim-helkot')"
-        value="גוש וחלקה"
-      />
-            <input
-        translatable-value
-        role="link"
-        type="button"
-        class="btn btn-primary btn-responsive"
-        onclick="scrollToElement('#vaada')"
-        value="החלטות הועדה"
-      />
-      <input
-        translatable-value
-        role="link"
-        type="button"
-        class="btn btn-primary btn-responsive"
-        onclick="scrollToElement('#archive')"
-        value="ארכיב מסמכים"
-      />
-    </div>
-  </div>
 </div>
-
+<div class="col-sm-4">
+<div class="result-title top-navbar-info-desc" translatable-text="">סוג התוכנית:</div>
+<div class="top-navbar-info-desc">
+        תכנית מתאר מקומית
+      </div>
+</div>
+<div class="col-sm-4">
+<div class="result-title top-navbar-info-desc" translatable-text="">שם התוכנית:</div>
+<div class="top-navbar-info-desc">
+        קביעת הוראות לחדרי גג ודירות גג
+      </div>
+</div>
+</div>
+<hr/>
+<div class="row hidden-xs" id="btn-group-row-id">
+<div aria-label="קישור לאיזור בדף" class="btn-group" id="btn-group-id" role="navigation" style="width: 100%">
+<input class="btn btn-primary btn-responsive" onclick="scrollToElement('#plan-main')" role="link" translatable-value="" type="button" value="מידע כללי"/>
+<input class="btn btn-primary btn-responsive" onclick="scrollToElement('#matarot')" role="link" translatable-value="" type="button" value="מטרות התוכנית"/>
+<input class="btn btn-primary btn-responsive" onclick="scrollToElement('#baaley-inyan')" role="link" translatable-value="" type="button" value="בעלי עניין"/>
+<input class="btn btn-primary btn-responsive" onclick="scrollToElement('#shlavey-tochnit')" role="link" translatable-value="" type="button" value="שלבי התוכנית"/>
+<input class="btn btn-primary btn-responsive" onclick="scrollToElement('#gushim-helkot')" role="link" translatable-value="" type="button" value="גוש וחלקה"/>
+<input class="btn btn-primary btn-responsive" onclick="scrollToElement('#vaada')" role="link" translatable-value="" type="button" value="החלטות הועדה"/>
+<input class="btn btn-primary btn-responsive" onclick="scrollToElement('#archive')" role="link" translatable-value="" type="button" value="ארכיב מסמכים"/>
+</div>
+</div>
+</div>
 <nav class="navbar navbar-default navbar-fixed-top" id="sticky-nav-bar">
-  <div class="container-fluid row">
-    <div class="dropdown dropdown-pos">
-      <button
-        class="btn dropdown-toggle col-md-1 col-sm-1 col-xs-1 hidden-print"
-        id="dropdownMenu1"
-        data-toggle="dropdown"
-      >
-        <span class="glyphicon glyphicon-menu-hamburger"></span>
-        <span translatable-text>ניווט</span>
-      </button>
-
-      <div id="navbar-titles-id" class="hidden-xs">
-        <div class="navbar-titles-container">
-          <div class="navbar-title">
-            <h5 class="result-title" translatable-text>מספר תוכנית:</h5>
-            <h5>501-0873794</h5>
-          </div>
-          <div style="border-left: 2px solid #ddd; height: 100%"></div>
-          <!-- <div class="col-md-3 col-sm-3 margin-top-navbar-info">
-            <h5>501-0873794</h5>
+<div class="container-fluid row">
+<div class="dropdown dropdown-pos">
+<button class="btn dropdown-toggle col-md-1 col-sm-1 col-xs-1 hidden-print" data-toggle="dropdown" id="dropdownMenu1">
+<span class="glyphicon glyphicon-menu-hamburger"></span>
+<span translatable-text="">ניווט</span>
+</button>
+<div class="hidden-xs" id="navbar-titles-id">
+<div class="navbar-titles-container">
+<div class="navbar-title">
+<h5 class="result-title" translatable-text="">מספר תוכנית:</h5>
+<h5>501-0873794</h5>
+</div>
+<div style="border-left: 2px solid #ddd; height: 100%"></div>
+<!-- <div class="col-md-3 col-sm-3 margin-top-navbar-info">
+            <h5>501-0873794</h5>
           </div> -->
-          <div class="navbar-title">
-            <h5 class="result-title" translatable-text>שם תוכנית:</h5>
-            <h5>קביעת הוראות לחדרי גג ודירות גג</h5>
-          </div>
-          <!-- <div class="col-md-4 col-sm-3 margin-top-navbar-info">
-            <h5>קביעת הוראות לחדרי גג ודירות גג</h5>
+<div class="navbar-title">
+<h5 class="result-title" translatable-text="">שם תוכנית:</h5>
+<h5>קביעת הוראות לחדרי גג ודירות גג</h5>
+</div>
+<!-- <div class="col-md-4 col-sm-3 margin-top-navbar-info">
+            <h5>קביעת הוראות לחדרי גג ודירות גג</h5>
           </div> -->
-        </div>
-      </div>
-
-      <div class="visible-xs" id="navbar-xs-id">
-        <div class="navbar-titles-container">
-          <h5 class="result-title" translatable-text>תוכנית</h5>
-          <h5>501-0873794</h5>
-        </div>
-      </div>
-
-      <ul class="dropdown-menu" id="dropdown-menu-nav-id" aria-labelledby="dropdownMenu1">
-        <li>
-          <input
-            translatable-value
-            role="link"
-            type="button"
-            class="btn li-max-width"
-            onclick="scrollToElement('#plan-main')"
-            value="מידע כללי"
-          />
-        </li>
-        <li>
-          <input
-            translatable-value
-            role="link"
-            type="button"
-            class="btn li-max-width"
-            onclick="scrollToElement('#matarot')"
-            value="מטרות התוכנית"
-          />
-        </li>
-        <li>
-          <input
-            translatable-value
-            role="link"
-            type="button"
-            class="btn li-max-width"
-            onclick="scrollToElement('#baaley-inyan')"
-            value="בעלי עניין"
-          />
-        </li>
-        <li>
-          <input
-            translatable-value
-            role="link"
-            type="button"
-            class="btn li-max-width"
-            onclick="scrollToElement('#shlavey-tochnit')"
-            value="שלבי התוכנית"
-          />
-        </li>
-                <li>
-          <input
-            translatable-value
-            role="link"
-            type="button"
-            class="btn li-max-width"
-            onclick="scrollToElement('#gushim-helkot')"
-            value="גוש וחלקה"
-          />
-        </li>
-                <li>
-          <input
-            translatable-value
-            role="link"
-            type="button"
-            class="btn li-max-width"
-            onclick="scrollToElement('#vaada')"
-            value="החלטות הועדה"
-          />
-        </li>
-        <li>
-          <input
-            translatable-value
-            role="link"
-            type="button"
-            class="btn li-max-width"
-            onclick="scrollToElement('#archive')"
-            value="ארכיב מסמכים"
-          />
-        </li>
-      </ul>
-    </div>
-  </div>
+</div>
+</div>
+<div class="visible-xs" id="navbar-xs-id">
+<div class="navbar-titles-container">
+<h5 class="result-title" translatable-text="">תוכנית</h5>
+<h5>501-0873794</h5>
+</div>
+</div>
+<ul aria-labelledby="dropdownMenu1" class="dropdown-menu" id="dropdown-menu-nav-id">
+<li>
+<input class="btn li-max-width" onclick="scrollToElement('#plan-main')" role="link" translatable-value="" type="button" value="מידע כללי"/>
+</li>
+<li>
+<input class="btn li-max-width" onclick="scrollToElement('#matarot')" role="link" translatable-value="" type="button" value="מטרות התוכנית"/>
+</li>
+<li>
+<input class="btn li-max-width" onclick="scrollToElement('#baaley-inyan')" role="link" translatable-value="" type="button" value="בעלי עניין"/>
+</li>
+<li>
+<input class="btn li-max-width" onclick="scrollToElement('#shlavey-tochnit')" role="link" translatable-value="" type="button" value="שלבי התוכנית"/>
+</li>
+<li>
+<input class="btn li-max-width" onclick="scrollToElement('#gushim-helkot')" role="link" translatable-value="" type="button" value="גוש וחלקה"/>
+</li>
+<li>
+<input class="btn li-max-width" onclick="scrollToElement('#vaada')" role="link" translatable-value="" type="button" value="החלטות הועדה"/>
+</li>
+<li>
+<input class="btn li-max-width" onclick="scrollToElement('#archive')" role="link" translatable-value="" type="button" value="ארכיב מסמכים"/>
+</li>
+</ul>
+</div>
+</div>
 </nav>
-
 <div class="row" id="plan-main" tabindex="-1">
-  <div>
-    <h3 class="result-title result-title-bottom" translatable-text>מידע כללי</h3>
-  </div>
-
-  <table class="table table-condensed" role="presentation">
-    <tbody>
-      <tr>
-        <td class="title" translatable-text>סטטוס תוכנית</td>
-        <td>בתוקף</td>
-      </tr>
-      <tr>
-        <td class="title" translatable-text>תאריך הסטטוס</td>
-        <td>26/01/2023</td>
-      </tr>
-      <tr>
-        <td class="title" translatable-text>בסמכות</td>
-        <td>ועדה מחוזית</td>
-      </tr>
-      <tr>
-        <td class="title" translatable-text>שכונה</td>
-        <td></td>
-      </tr>
-      <tr>
-        <td class="title" translatable-text>שטח</td>
-        <td>7,348,000.00 מ"ר 7348.000 דונם</td>
-      </tr>
-      <tr>
-        <td class="title" translatable-text>יזם</td>
-        <td>ועדה מקומית בני ברק</td>
-      </tr>
-      <tr>
-        <td class="title" translatable-text>קישור למבא"ת</td>
-        <td>
-          <a
-            href="javascript:void(0);"
-            onclick="window.open(encodeURI('https://mavat.iplan.gov.il/SV3?text=501-0873794'), '_blank');"
-            translatable-text
-            >קישור לתוכנית</a
-          >
-        </td>
-      </tr>
-    </tbody>
-  </table>
+<div>
+<h3 class="result-title result-title-bottom" translatable-text="">מידע כללי</h3>
 </div>
-
+<table class="table table-condensed" role="presentation">
+<tbody>
+<tr>
+<td class="title" translatable-text="">סטטוס תוכנית</td>
+<td>בתוקף</td>
+</tr>
+<tr>
+<td class="title" translatable-text="">תאריך הסטטוס</td>
+<td>26/01/2023</td>
+</tr>
+<tr>
+<td class="title" translatable-text="">בסמכות</td>
+<td>ועדה מחוזית</td>
+</tr>
+<tr>
+<td class="title" translatable-text="">שכונה</td>
+<td></td>
+</tr>
+<tr>
+<td class="title" translatable-text="">שטח</td>
+<td>7,348,000.00 מ"ר 7348.000 דונם</td>
+</tr>
+<tr>
+<td class="title" translatable-text="">יזם</td>
+<td>ועדה מקומית בני ברק</td>
+</tr>
+<tr>
+<td class="title" translatable-text="">קישור למבא"ת</td>
+<td>
+<a href="javascript:void(0);" onclick="window.open(encodeURI('https://mavat.iplan.gov.il/SV3?text=501-0873794'), '_blank');" translatable-text="">קישור לתוכנית</a>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
 <div class="row" id="matarot" tabindex="-1">
-  <div>
-    <h3 class="result-title result-title-bottom" translatable-text>מטרות התוכנית</h3>
-  </div>
-  <table class="table table-condensed" role="presentation">
-    <tbody>
-            <tr>
-        <td translatable-text>לא נמצאו נתונים</td>
-      </tr>
-          </tbody>
-  </table>
+<div>
+<h3 class="result-title result-title-bottom" translatable-text="">מטרות התוכנית</h3>
 </div>
-
+<table class="table table-condensed" role="presentation">
+<tbody>
+<tr>
+<td translatable-text="">לא נמצאו נתונים</td>
+</tr>
+</tbody>
+</table>
+</div>
 <div class="row" id="baaley-inyan" tabindex="-1">
-  <div>
-    <h3 class="result-title result-title-bottom" translatable-text>בעלי עניין</h3>
-  </div>
-  <table class="table table-condensed" role="presentation">
-    <tbody>
-                  <tr>
-        <td class="title">מגיש</td>
-        <td>ועדה מקומית בני ברק</td>
-      </tr>
-            <tr>
-        <td class="title">יזם</td>
-        <td>ועדה מקומית בני ברק</td>
-      </tr>
-            <tr>
-        <td class="title">מתכנן</td>
-        <td>אדר' ישראל קשטן מהנדס העיר ב"ב</td>
-      </tr>
-                </tbody>
-  </table>
+<div>
+<h3 class="result-title result-title-bottom" translatable-text="">בעלי עניין</h3>
 </div>
-
+<table class="table table-condensed" role="presentation">
+<tbody>
+<tr>
+<td class="title">מגיש</td>
+<td>שם בעל עניין</td>
+</tr>
+<tr>
+<td class="title">יזם</td>
+<td>שם בעל עניין</td>
+</tr>
+<tr>
+<td class="title">מתכנן</td>
+<td>שם בעל עניין</td>
+</tr>
+</tbody>
+</table>
+</div>
 <div class="row" id="shlavey-tochnit" tabindex="-1">
-  <div>
-    <div
-      id="btn-shlavim"
-      type="button"
-      class="btn btn-defailt btn-header collapsed"
-      data-toggle="collapse"
-      data-target="#table-shlavim"
-      role="button"
-    >
-      <span translatable-text>שלבי התוכנית</span>
-      <span class="spn">(7)</span>
-    </div>
-  </div>
-  <div id="table-shlavim" class="collapse" style="height: 0px">
-    <table class="table table-condensed">
-      <thead>
-        <tr>
-          <th class="th-results-header" translatable-text>מתאריך</th>
-          <th class="th-results-header" translatable-text>שם השלב</th>
-          <th class="th-results-header" translatable-text>ילקוט פרסומים</th>
-          <th class="th-results-header hidden-on-mobile" translatable-text>מספר ישיבה</th>
-        </tr>
-      </thead>
-      <tbody>
-                <tr>
-          <td>26/01/2023</td>
-          <td>ס.117 - פרסום הודעה על אישור מתן תוקף בילקוט פרסומים            *יפ יפ יפ</td>
-          <td>11071</td>
-          <td class="hidden-on-mobile"></td>
-        </tr>
-                <tr>
-          <td>07/12/2022</td>
-          <td>ס.108 - החלטת ועדה מחוזית מתן תוקף בתנאים              *תוקף מחוזית</td>
-          <td></td>
-          <td class="hidden-on-mobile"></td>
-        </tr>
-                <tr>
-          <td>12/09/2022</td>
-          <td>ס.108 - החלטת ועדה מחוזית מתן תוקף בתנאים              *תוקף מחוזית</td>
-          <td></td>
-          <td class="hidden-on-mobile"></td>
-        </tr>
-                <tr>
-          <td>23/06/2022</td>
-          <td>ס.100(1) - הגשת התנגדויות ע"י הו. המקומית או מהנדס הו. המקומית</td>
-          <td></td>
-          <td class="hidden-on-mobile"></td>
-        </tr>
-                <tr>
-          <td>27/04/2022</td>
-          <td>ס.89 - פרסום הודעה על הפקדת תכנית בעיתונים                            *עיתונים</td>
-          <td></td>
-          <td class="hidden-on-mobile"></td>
-        </tr>
-                <tr>
-          <td>26/04/2022</td>
-          <td>ס.89 - פרסום הודעה על הפקדת תכנית בילקוט פרסומים                   *יפ יפ יפ</td>
-          <td>10465</td>
-          <td class="hidden-on-mobile"></td>
-        </tr>
-                <tr>
-          <td>11/10/2021</td>
-          <td>ס.85 - החלטת ועדה מחוזית על הפקדה עם שינויים           *הפקדה מחוזית</td>
-          <td></td>
-          <td class="hidden-on-mobile"></td>
-        </tr>
-                <tr>
-          <td>06/07/2020</td>
-          <td>קליטת תוכנית ועמידה בתנאי סף                                * קליטה</td>
-          <td></td>
-          <td class="hidden-on-mobile"></td>
-        </tr>
-              </tbody>
-    </table>
-  </div>
+<div>
+<div class="btn btn-defailt btn-header collapsed" data-target="#table-shlavim" data-toggle="collapse" id="btn-shlavim" role="button" type="button">
+<span translatable-text="">שלבי התוכנית</span>
+<span class="spn">(7)</span>
 </div>
-
+</div>
+<div class="collapse" id="table-shlavim" style="height: 0px">
+<table class="table table-condensed">
+<thead>
+<tr>
+<th class="th-results-header" translatable-text="">מתאריך</th>
+<th class="th-results-header" translatable-text="">שם השלב</th>
+<th class="th-results-header" translatable-text="">ילקוט פרסומים</th>
+<th class="th-results-header hidden-on-mobile" translatable-text="">מספר ישיבה</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>26/01/2023</td>
+<td>ס.117 - פרסום הודעה על אישור מתן תוקף בילקוט פרסומים            *יפ יפ יפ</td>
+<td>11071</td>
+<td class="hidden-on-mobile"></td>
+</tr>
+<tr>
+<td>07/12/2022</td>
+<td>ס.108 - החלטת ועדה מחוזית מתן תוקף בתנאים              *תוקף מחוזית</td>
+<td></td>
+<td class="hidden-on-mobile"></td>
+</tr>
+<tr>
+<td>12/09/2022</td>
+<td>ס.108 - החלטת ועדה מחוזית מתן תוקף בתנאים              *תוקף מחוזית</td>
+<td></td>
+<td class="hidden-on-mobile"></td>
+</tr>
+<tr>
+<td>23/06/2022</td>
+<td>ס.100(1) - הגשת התנגדויות ע"י הו. המקומית או מהנדס הו. המקומית</td>
+<td></td>
+<td class="hidden-on-mobile"></td>
+</tr>
+<tr>
+<td>27/04/2022</td>
+<td>ס.89 - פרסום הודעה על הפקדת תכנית בעיתונים                            *עיתונים</td>
+<td></td>
+<td class="hidden-on-mobile"></td>
+</tr>
+<tr>
+<td>26/04/2022</td>
+<td>ס.89 - פרסום הודעה על הפקדת תכנית בילקוט פרסומים                   *יפ יפ יפ</td>
+<td>10465</td>
+<td class="hidden-on-mobile"></td>
+</tr>
+<tr>
+<td>11/10/2021</td>
+<td>ס.85 - החלטת ועדה מחוזית על הפקדה עם שינויים           *הפקדה מחוזית</td>
+<td></td>
+<td class="hidden-on-mobile"></td>
+</tr>
+<tr>
+<td>06/07/2020</td>
+<td>קליטת תוכנית ועמידה בתנאי סף                                * קליטה</td>
+<td></td>
+<td class="hidden-on-mobile"></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <div class="row" id="gushim-helkot" tabindex="-1">
-  <div>
-    <div
-      id="btn-gushim-helkot"
-      type="button"
-      class="btn btn-defailt btn-header collapsed"
-      data-toggle="collapse"
-      data-target="#table-gushim-helkot"
-      role="button"
-    >
-      <span translatable-text>גושים וחלקות</span>
-      <span class="spn">(0)</span>
-    </div>
-  </div>
-  <div id="table-gushim-helkot" class="collapse" style="height: 0px">
-    <table class="table table-condensed">
-      <thead>
-        <tr>
-          <th class="th-results-header" translatable-text>מספר גוש</th>
-          <th class="th-results-header" translatable-text>סטטוס הגוש</th>
-          <th class="th-results-header" translatable-text>חלקי / שלם</th>
-          <th class="th-results-header" translatable-text>מחלקה</th>
-          <th class="th-results-header" translatable-text>עד חלקה</th>
-          <th class="th-results-header" translatable-text>חלקה שלמה / חלקית</th>
-        </tr>
-      </thead>
-      <tbody>
-                <tr>
-          <td colspan="6" translatable-text>לא נמצאו נתונים</td>
-        </tr>
-              </tbody>
-    </table>
-  </div>
+<div>
+<div class="btn btn-defailt btn-header collapsed" data-target="#table-gushim-helkot" data-toggle="collapse" id="btn-gushim-helkot" role="button" type="button">
+<span translatable-text="">גושים וחלקות</span>
+<span class="spn">(0)</span>
+</div>
+</div>
+<div class="collapse" id="table-gushim-helkot" style="height: 0px">
+<table class="table table-condensed">
+<thead>
+<tr>
+<th class="th-results-header" translatable-text="">מספר גוש</th>
+<th class="th-results-header" translatable-text="">סטטוס הגוש</th>
+<th class="th-results-header" translatable-text="">חלקי / שלם</th>
+<th class="th-results-header" translatable-text="">מחלקה</th>
+<th class="th-results-header" translatable-text="">עד חלקה</th>
+<th class="th-results-header" translatable-text="">חלקה שלמה / חלקית</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td colspan="6" translatable-text="">לא נמצאו נתונים</td>
+</tr>
+</tbody>
+</table>
+</div>
 </div>
 <!-- ShowGushHelka-->
-
 <div class="row" id="vaada" tabindex="-1">
-  <div>
-    <div
-      id="btn-meetings"
-      type="button"
-      class="btn btn-defailt btn-header collapsed"
-      data-toggle="collapse"
-      data-target="#table-meetings"
-      role="button"
-    >
-      <span translatable-text>ישיבות והחלטות הוועדה</span>
-      <span class="spn">(2)</span>
-    </div>
-  </div>
-  <div id="table-meetings" class="collapse" style="height: 0px">
-    <table class="table table-condensed">
-      <thead>
-        <tr>
-          <th class="th-results-header"></th>
-          <th class="th-results-header" translatable-text>שם הועדה</th>
-          <th class="th-results-header" translatable-text>מספר ישיבה</th>
-          <th class="th-results-header" translatable-text>תאריך ישיבה</th>
-          <th class="th-results-header" translatable-text>יום בשבוע</th>
-          <th class="th-results-header" translatable-text>שעה</th>
-          <th class="th-results-header hidden-on-mobile" translatable-text>תאריך עברי</th>
-        </tr>
-      </thead>
-      <tbody>
-                        <tr
-          data-toggle="collapse"
-          data-target="#1420200036"
-          class="accordion-toggle collapsed"
-          tabindex="0"
-          aria-expanded="false"
-          aria-label="פרטי ועדת משנה מספר 20200036"
-        >
-          <td></td>
-          <td>ועדת משנה</td>
-          <td>
-            <a href="javascript:getMeeting(14,20200036)">20200036</a>
-          </td>
-          <td>25/05/2020</td>
-          <td>ב</td>
-          <td>00:00</td>
-          <td class="hidden-on-mobile">ב'  סיון, תש"ף</td>
-        </tr>
-        <tr>
-          <td colspan="7" class="hiddenRow">
-            <div class="accordian-body collapse" id="1420200036">
-              <table class="table table-condensed" role="presentation">
-                <thead>
-                  <tr>
-                    <th class="title vaada-title" translatable-text>מהות</th>
-                  </tr>
-                </thead>
-                <tbody>
-                                    <tr>
-                    <td>קביעת הוראות לחדרי יציאה לגג בבניינים קיימים וחדשים וקביעת הוראות לדירות גג</td>
-                  </tr>
-                                    <tr>
-                    <td>בבניינים חדשים.</td>
-                  </tr>
-                  
-                </tbody>
-              </table>
-              <table class="table table-condensed" role="presentation">
-                <thead>
-                  <tr>
-                    <th class="title vaada-title" translatable-text>החלטות</th>
-                  </tr>
-                </thead>
-                <tbody>
-                                    <tr>
-                    <td>להמליץ לו. המחוזית להפקדה בתנאים הבאים:</td>
-                  </tr>
-                                    <tr>
-                    <td>1. עפ"י העקרונות שהוצגו בועדה.</td>
-                  </tr>
-                                    <tr>
-                    <td>2. קבלת חוו"ד שמאית משמאי הועדה.</td>
-                  </tr>
-                                    <tr>
-                    <td>3. הפרגולות יותרו מעץ או חומרים קלים בלבד.</td>
-                  </tr>
-                                    <tr>
-                    <td>4. לא תותר בנייה על השטחים המשותפים.</td>
-                  </tr>
-                                    <tr>
-                    <td>5. תיקוני נוסח בתאום עם היוע"מ.</td>
-                  </tr>
-                                    <tr>
-                    <td>&nbsp</td>
-                  </tr>
-                                    <tr>
-                    <td>ההחלטה התקבלה פה אחד.</td>
-                  </tr>
-                  
-                </tbody>
-              </table>
-            </div>
-          </td>
-        </tr>
-                <tr
-          data-toggle="collapse"
-          data-target="#1420220084"
-          class="accordion-toggle collapsed"
-          tabindex="0"
-          aria-expanded="false"
-          aria-label="פרטי ועדת משנה מספר 20220084"
-        >
-          <td></td>
-          <td>ועדת משנה</td>
-          <td>
-            <a href="javascript:getMeeting(14,20220084)">20220084</a>
-          </td>
-          <td>11/07/2022</td>
-          <td>ב</td>
-          <td>00:00</td>
-          <td class="hidden-on-mobile">י"ב תמוז, תשפ"ב</td>
-        </tr>
-        <tr>
-          <td colspan="7" class="hiddenRow">
-            <div class="accordian-body collapse" id="1420220084">
-              <table class="table table-condensed" role="presentation">
-                <thead>
-                  <tr>
-                    <th class="title vaada-title" translatable-text>מהות</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  
-                  <tr>
-                    <td>קביעת הוראות לחדרי יציאה לגג בבניינים קיימים וחדשים וקביעת הוראות לדירות גג</td>
-                  </tr>
-                                    <tr>
-                    <td>בבניינים חדשים.</td>
-                  </tr>
-                                  </tbody>
-              </table>
-              <table class="table table-condensed" role="presentation">
-                <thead>
-                  <tr>
-                    <th class="title vaada-title" translatable-text>החלטות</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  
-                  <tr>
-                    <td>הועדה ממליצה לועדה המחוזית לקבל את התנגדות מהנדס העיר ולדחות את שאר</td>
-                  </tr>
-                                    <tr>
-                    <td>ההתנגדויות מהנימוקים שפורטו בהערות מח' תב"ע.</td>
-                  </tr>
-                                    <tr>
-                    <td>&nbsp</td>
-                  </tr>
-                                    <tr>
-                    <td>ההחלטה התקבלה פה אחד.</td>
-                  </tr>
-                                    <tr>
-                    <td>&nbsp</td>
-                  </tr>
-                                  </tbody>
-              </table>
-            </div>
-          </td>
-        </tr>
-                      </tbody>
-    </table>
-  </div>
+<div>
+<div class="btn btn-defailt btn-header collapsed" data-target="#table-meetings" data-toggle="collapse" id="btn-meetings" role="button" type="button">
+<span translatable-text="">ישיבות והחלטות הוועדה</span>
+<span class="spn">(2)</span>
 </div>
-
+</div>
+<div class="collapse" id="table-meetings" style="height: 0px">
+<table class="table table-condensed">
+<thead>
+<tr>
+<th class="th-results-header"></th>
+<th class="th-results-header" translatable-text="">שם הועדה</th>
+<th class="th-results-header" translatable-text="">מספר ישיבה</th>
+<th class="th-results-header" translatable-text="">תאריך ישיבה</th>
+<th class="th-results-header" translatable-text="">יום בשבוע</th>
+<th class="th-results-header" translatable-text="">שעה</th>
+<th class="th-results-header hidden-on-mobile" translatable-text="">תאריך עברי</th>
+</tr>
+</thead>
+<tbody>
+<tr aria-expanded="false" aria-label="פרטי ועדת משנה מספר 20200036" class="accordion-toggle collapsed" data-target="#1420200036" data-toggle="collapse" tabindex="0">
+<td></td>
+<td>ועדת משנה</td>
+<td>
+<a href="javascript:getMeeting(14,20200036)">20200036</a>
+</td>
+<td>25/05/2020</td>
+<td>ב</td>
+<td>00:00</td>
+<td class="hidden-on-mobile">ב'  סיון, תש"ף</td>
+</tr>
+<tr>
+<td class="hiddenRow" colspan="7">
+<div class="accordian-body collapse" id="1420200036">
+<table class="table table-condensed" role="presentation">
+<thead>
+<tr>
+<th class="title vaada-title" translatable-text="">מהות</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>קביעת הוראות לחדרי יציאה לגג בבניינים קיימים וחדשים וקביעת הוראות לדירות גג</td>
+</tr>
+<tr>
+<td>בבניינים חדשים.</td>
+</tr>
+</tbody>
+</table>
+<table class="table table-condensed" role="presentation">
+<thead>
+<tr>
+<th class="title vaada-title" translatable-text="">החלטות</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>להמליץ לו. המחוזית להפקדה בתנאים הבאים:</td>
+</tr>
+<tr>
+<td>1. עפ"י העקרונות שהוצגו בועדה.</td>
+</tr>
+<tr>
+<td>2. קבלת חוו"ד שמאית משמאי הועדה.</td>
+</tr>
+<tr>
+<td>3. הפרגולות יותרו מעץ או חומרים קלים בלבד.</td>
+</tr>
+<tr>
+<td>4. לא תותר בנייה על השטחים המשותפים.</td>
+</tr>
+<tr>
+<td>5. תיקוני נוסח בתאום עם היוע"מ.</td>
+</tr>
+<tr>
+<td> </td>
+</tr>
+<tr>
+<td>ההחלטה התקבלה פה אחד.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</td>
+</tr>
+<tr aria-expanded="false" aria-label="פרטי ועדת משנה מספר 20220084" class="accordion-toggle collapsed" data-target="#1420220084" data-toggle="collapse" tabindex="0">
+<td></td>
+<td>ועדת משנה</td>
+<td>
+<a href="javascript:getMeeting(14,20220084)">20220084</a>
+</td>
+<td>11/07/2022</td>
+<td>ב</td>
+<td>00:00</td>
+<td class="hidden-on-mobile">י"ב תמוז, תשפ"ב</td>
+</tr>
+<tr>
+<td class="hiddenRow" colspan="7">
+<div class="accordian-body collapse" id="1420220084">
+<table class="table table-condensed" role="presentation">
+<thead>
+<tr>
+<th class="title vaada-title" translatable-text="">מהות</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>קביעת הוראות לחדרי יציאה לגג בבניינים קיימים וחדשים וקביעת הוראות לדירות גג</td>
+</tr>
+<tr>
+<td>בבניינים חדשים.</td>
+</tr>
+</tbody>
+</table>
+<table class="table table-condensed" role="presentation">
+<thead>
+<tr>
+<th class="title vaada-title" translatable-text="">החלטות</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>הועדה ממליצה לועדה המחוזית לקבל את התנגדות מהנדס העיר ולדחות את שאר</td>
+</tr>
+<tr>
+<td>ההתנגדויות מהנימוקים שפורטו בהערות מח' תב"ע.</td>
+</tr>
+<tr>
+<td> </td>
+</tr>
+<tr>
+<td>ההחלטה התקבלה פה אחד.</td>
+</tr>
+<tr>
+<td> </td>
+</tr>
+</tbody>
+</table>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <div class="row" id="archive" tabindex="-1">
-  <div>
-    <div
-      id="btn-archive"
-      type="button"
-      class="btn btn-defailt btn-header collapsed"
-      data-toggle="collapse"
-      data-target="#table-archive"
-      role="button"
-    >
-      <span translatable-text>ארכיב מסמכים</span>
-      <span class="spn">(13)</span>
-    </div>
-  </div>
-  <div id="table-archive" class="collapse" style="height: 0px">
-    <table class="table table-condensed">
-      <thead>
-        <tr>
-          <th class="th-results-header" translatable-text>שם המסמך</th>
-          <th class="th-results-header hidden-on-mobile" translatable-text>נושא</th>
-                    <th class="th-results-header" translatable-text>תאריך</th>
-                  </tr>
-      </thead>
-      <tbody>
-                                        <tr>
-          <td>
-            <a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/76/559ff773-9218-49fe-b73f-03fcb1831904.pdf" target="_blank"
-              ><span class="glyphicon glyphicon-file"></span>
-              תיק פרסום אישור תכנית שילוט בלבד פרסום גגות בני ברק (1)</a
-            >
-          </td>
-          <td class="hidden-on-mobile">צרופות לתב"ע</td>
-                    <td>15/05/2023</td>
-                  </tr>
-                <tr>
-          <td>
-            <a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/76/f1bb20b3-df2c-47eb-bf5a-113a41aba195.pdf" target="_blank"
-              ><span class="glyphicon glyphicon-file"></span>
-              גגות פרסום עיתונים</a
-            >
-          </td>
-          <td class="hidden-on-mobile">צרופות לתב"ע</td>
-                    <td>15/05/2023</td>
-                  </tr>
-                <tr>
-          <td>
-            <a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/3/fed1be52-210d-466d-8502-c11f22c2f2a9.pdf" target="_blank"
-              ><span class="glyphicon glyphicon-file"></span>
-              תקנון לתוקף</a
-            >
-          </td>
-          <td class="hidden-on-mobile">תקנון</td>
-                    <td>29/01/2023</td>
-                  </tr>
-                <tr>
-          <td>
-            <a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/4/68510415-d009-45e5-840d-681716a2ab6b.pdf" target="_blank"
-              ><span class="glyphicon glyphicon-file"></span>
-              מצב מוצע לתוקף</a
-            >
-          </td>
-          <td class="hidden-on-mobile">תשריט</td>
-                    <td>29/01/2023</td>
-                  </tr>
-                <tr>
-          <td>
-            <a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/4/9199b4d0-eb7a-4a3a-afe1-dad44463f379.pdf" target="_blank"
-              ><span class="glyphicon glyphicon-file"></span>
-              בינוי לתוקף</a
-            >
-          </td>
-          <td class="hidden-on-mobile">תשריט</td>
-                    <td>29/01/2023</td>
-                  </tr>
-                <tr>
-          <td>
-            <a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/76/beb0c499-720f-4ee0-92f4-a1f7a60a73cb.pdf" target="_blank"
-              ><span class="glyphicon glyphicon-file"></span>
-              החלטת הו. המחוזית לענין ההתנגדות</a
-            >
-          </td>
-          <td class="hidden-on-mobile">צרופות לתב"ע</td>
-                    <td>19/09/2022</td>
-                  </tr>
-                <tr>
-          <td>
-            <a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/780/86f520a9-cc12-4825-a66e-e247d385197b.pdf" target="_blank"
-              ><span class="glyphicon glyphicon-file"></span>
-              501-0873794</a
-            >
-          </td>
-          <td class="hidden-on-mobile">פרסומי תב"ע</td>
-                    <td>24/07/2022</td>
-                  </tr>
-                <tr>
-          <td>
-            <a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/3/07bc5178-970a-4ef6-846f-d1c7bd66035b.pdf" target="_blank"
-              ><span class="glyphicon glyphicon-file"></span>
-              תקנון לוועדה</a
-            >
-          </td>
-          <td class="hidden-on-mobile">תקנון</td>
-                    <td>10/07/2022</td>
-                  </tr>
-                <tr>
-          <td>
-            <a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/4/a5a8d199-7842-456e-9bea-9e183a49ae97.pdf" target="_blank"
-              ><span class="glyphicon glyphicon-file"></span>
-              מצב מוצע לוועדה</a
-            >
-          </td>
-          <td class="hidden-on-mobile">תשריט</td>
-                    <td>10/07/2022</td>
-                  </tr>
-                <tr>
-          <td>
-            <a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/4/181de7ac-a3ea-449e-ba94-7ec419de30f6.pdf" target="_blank"
-              ><span class="glyphicon glyphicon-file"></span>
-              בינוי לוועדה</a
-            >
-          </td>
-          <td class="hidden-on-mobile">תשריט</td>
-                    <td>10/07/2022</td>
-                  </tr>
-                <tr>
-          <td>
-            <a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/76/5e0c5628-7c8a-4ac4-9314-d4eb7fe5112d.pdf" target="_blank"
-              ><span class="glyphicon glyphicon-file"></span>
-              ישראל היום 38</a
-            >
-          </td>
-          <td class="hidden-on-mobile">צרופות לתב"ע</td>
-                    <td>11/05/2022</td>
-                  </tr>
-                <tr>
-          <td>
-            <a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/76/4016ad76-b2d7-455b-b8cd-78108864df13.pdf" target="_blank"
-              ><span class="glyphicon glyphicon-file"></span>
-              המבשר</a
-            >
-          </td>
-          <td class="hidden-on-mobile">צרופות לתב"ע</td>
-                    <td>11/05/2022</td>
-                  </tr>
-                <tr>
-          <td>
-            <a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/76/f7c4e9f1-8f3d-46f4-9887-ce35bbacb4b5.pdf" target="_blank"
-              ><span class="glyphicon glyphicon-file"></span>
-              פרסום בשבע</a
-            >
-          </td>
-          <td class="hidden-on-mobile">צרופות לתב"ע</td>
-                    <td>11/05/2022</td>
-                  </tr>
-                              </tbody>
-    </table>
-  </div>
+<div>
+<div class="btn btn-defailt btn-header collapsed" data-target="#table-archive" data-toggle="collapse" id="btn-archive" role="button" type="button">
+<span translatable-text="">ארכיב מסמכים</span>
+<span class="spn">(13)</span>
 </div>
-
-<button id="print-btn" class="btn btn-primary">
-  <span class="glyphicon glyphicon-print"></span>
-  &nbsp;
-  <span translatable-text>הדפסה</span>
+</div>
+<div class="collapse" id="table-archive" style="height: 0px">
+<table class="table table-condensed">
+<thead>
+<tr>
+<th class="th-results-header" translatable-text="">שם המסמך</th>
+<th class="th-results-header hidden-on-mobile" translatable-text="">נושא</th>
+<th class="th-results-header" translatable-text="">תאריך</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/76/559ff773-9218-49fe-b73f-03fcb1831904.pdf" target="_blank"><span class="glyphicon glyphicon-file"></span>
+              תיק פרסום אישור תכנית שילוט בלבד פרסום גגות בני ברק (1)</a>
+</td>
+<td class="hidden-on-mobile">צרופות לתב"ע</td>
+<td>15/05/2023</td>
+</tr>
+<tr>
+<td>
+<a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/76/f1bb20b3-df2c-47eb-bf5a-113a41aba195.pdf" target="_blank"><span class="glyphicon glyphicon-file"></span>
+              גגות פרסום עיתונים</a>
+</td>
+<td class="hidden-on-mobile">צרופות לתב"ע</td>
+<td>15/05/2023</td>
+</tr>
+<tr>
+<td>
+<a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/3/fed1be52-210d-466d-8502-c11f22c2f2a9.pdf" target="_blank"><span class="glyphicon glyphicon-file"></span>
+              תקנון לתוקף</a>
+</td>
+<td class="hidden-on-mobile">תקנון</td>
+<td>29/01/2023</td>
+</tr>
+<tr>
+<td>
+<a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/4/68510415-d009-45e5-840d-681716a2ab6b.pdf" target="_blank"><span class="glyphicon glyphicon-file"></span>
+              מצב מוצע לתוקף</a>
+</td>
+<td class="hidden-on-mobile">תשריט</td>
+<td>29/01/2023</td>
+</tr>
+<tr>
+<td>
+<a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/4/9199b4d0-eb7a-4a3a-afe1-dad44463f379.pdf" target="_blank"><span class="glyphicon glyphicon-file"></span>
+              בינוי לתוקף</a>
+</td>
+<td class="hidden-on-mobile">תשריט</td>
+<td>29/01/2023</td>
+</tr>
+<tr>
+<td>
+<a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/76/beb0c499-720f-4ee0-92f4-a1f7a60a73cb.pdf" target="_blank"><span class="glyphicon glyphicon-file"></span>
+              החלטת הו. המחוזית לענין ההתנגדות</a>
+</td>
+<td class="hidden-on-mobile">צרופות לתב"ע</td>
+<td>19/09/2022</td>
+</tr>
+<tr>
+<td>
+<a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/780/86f520a9-cc12-4825-a66e-e247d385197b.pdf" target="_blank"><span class="glyphicon glyphicon-file"></span>
+              501-0873794</a>
+</td>
+<td class="hidden-on-mobile">פרסומי תב"ע</td>
+<td>24/07/2022</td>
+</tr>
+<tr>
+<td>
+<a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/3/07bc5178-970a-4ef6-846f-d1c7bd66035b.pdf" target="_blank"><span class="glyphicon glyphicon-file"></span>
+              תקנון לוועדה</a>
+</td>
+<td class="hidden-on-mobile">תקנון</td>
+<td>10/07/2022</td>
+</tr>
+<tr>
+<td>
+<a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/4/a5a8d199-7842-456e-9bea-9e183a49ae97.pdf" target="_blank"><span class="glyphicon glyphicon-file"></span>
+              מצב מוצע לוועדה</a>
+</td>
+<td class="hidden-on-mobile">תשריט</td>
+<td>10/07/2022</td>
+</tr>
+<tr>
+<td>
+<a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/4/181de7ac-a3ea-449e-ba94-7ec419de30f6.pdf" target="_blank"><span class="glyphicon glyphicon-file"></span>
+              בינוי לוועדה</a>
+</td>
+<td class="hidden-on-mobile">תשריט</td>
+<td>10/07/2022</td>
+</tr>
+<tr>
+<td>
+<a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/76/5e0c5628-7c8a-4ac4-9314-d4eb7fe5112d.pdf" target="_blank"><span class="glyphicon glyphicon-file"></span>
+              ישראל היום 38</a>
+</td>
+<td class="hidden-on-mobile">צרופות לתב"ע</td>
+<td>11/05/2022</td>
+</tr>
+<tr>
+<td>
+<a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/76/4016ad76-b2d7-455b-b8cd-78108864df13.pdf" target="_blank"><span class="glyphicon glyphicon-file"></span>
+              המבשר</a>
+</td>
+<td class="hidden-on-mobile">צרופות לתב"ע</td>
+<td>11/05/2022</td>
+</tr>
+<tr>
+<td>
+<a href="https://archive.gis-net.co.il/bneybrak/Pirsumim/76/f7c4e9f1-8f3d-46f4-9887-ce35bbacb4b5.pdf" target="_blank"><span class="glyphicon glyphicon-file"></span>
+              פרסום בשבע</a>
+</td>
+<td class="hidden-on-mobile">צרופות לתב"ע</td>
+<td>11/05/2022</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<button class="btn btn-primary" id="print-btn">
+<span class="glyphicon glyphicon-print"></span>
+   
+  <span translatable-text="">הדפסה</span>
 </button>
-
-<button
-  translatable-title
-  translatable-bs-title
-  id="back-to-top"
-  href="#"
-  class="btn btn-primary scroll-back-to-top"
-  title="חזרה לראש הדף"
-  onClick="scrollToElement(MAIN_CONTAINER_SELECTOR,500); return false;"
-  data-toggle="tooltip"
-  data-placement="left"
->
-  <span class="glyphicon glyphicon-chevron-up"></span>
+<button class="btn btn-primary scroll-back-to-top" data-placement="left" data-toggle="tooltip" href="#" id="back-to-top" onclick="scrollToElement(MAIN_CONTAINER_SELECTOR,500); return false;" title="חזרה לראש הדף" translatable-bs-title="" translatable-title="">
+<span class="glyphicon glyphicon-chevron-up"></span>
 </button>
-
-<script>
-  $(function() {
-      $(MAIN_CONTAINER_SELECTOR).find("#btn-gushim-helkot,#btn-meetings").click();
-  });
+<script>
+  $(function() {
+      $(MAIN_CONTAINER_SELECTOR).find("#btn-gushim-helkot,#btn-meetings").click();
+  });
 </script>
