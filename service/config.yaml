@@ -37,11 +37,21 @@ citywide_plans: []
 # with HTTP 429 on 2026-10-28; enabled again for the one approved check on 2026-10-29.
 disabled_sources: []
 
-# Office library of plan documents (one folder per plan number), checked before any
-# source and filled after every download; every user writes to it. Temporary local
-# folder (user's decision, 2026-10-28) until it moves to the office server, e.g.
-# \\server\share\ParcelDocs\plans. Remove the line to turn the library off.
-plans_library: C:/ParcelDocs_Library
+# Office library of plan documents: <city>/<plan number>/ and ארציות/<plan number>/,
+# each with plan.json (PRD §4.3). Searched before any source and filled after every
+# download; every user writes to it. On the office server (Y:\ראשי\עבודות\תב''עות),
+# written as a UNC path because Y: may not be connected yet when the service starts at
+# logon (user's decision, 2026-10-29). Remove the line to turn the library off.
+plans_library: "//server/מסמכים משותפים/ראשי/עבודות/תב''עות"
+# Used while the share cannot be reached, and synced to it when it answers again.
+plans_library_local: ../output/.cache/library_local
+# This computer's index of the library (SQLite, never on the share); safe to delete.
+library_index: ../output/.cache/library_index.sqlite
+# A plan without instructions and a map in the library is listed again in Complot
+# (GetTabaFile) only after this many days.
+library_recheck_days: 30
+# A plan whose boundary covers at least this share of the municipality is city-wide.
+citywide_min_share: 0.5
 
 # Files downloaded by hand from mavat are picked up here (default: ~/Downloads).
 # downloads_dir: C:/Users/<user>/Downloads

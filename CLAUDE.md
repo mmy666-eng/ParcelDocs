@@ -23,6 +23,7 @@ ParcelDocs: פוליליין סגור ב-AutoCAD/ZWCAD (ITM, EPSG:2039) ← זי
 - **לא לעקוף CAPTCHA, התחברות או תשלום.** פריט כזה מסומן "דורש פעולה ידנית".
 - מבא"ת: לא פונים אליו מהקוד ולא מפעילים דפדפן אוטומטית. מותר רק לפתוח את `mavat_url` בדפדפן של המשתמש, ולתייק קבצים שהמשתמש הוריד בעצמו (`app/mavat_assist.py`).
 - בסקריפטים זמניים: לא לקרוא לקובץ בשם של מודול סטנדרטי (למשל `inspect.py`), כי הוא מסתיר את המודול.
+- **בתיקיות הרשת של המשרד** (`Y:` = `\\server\מסמכים משותפים`): לא למחוק ולא לשנות קבצים של המשרד. כותבים רק לתיקיית הספרייה (`תב''עות`), ורק דרך `app.library` או השירות.
 - Rate limit: עד בקשה אחת בשנייה לכל מקור, עם User-Agent מזהה.
 - כל מקור נתונים מומש כ-Provider (`PlansProvider` / `PermitsProvider`, PRD §5.2). אין לוגיקה ספציפית לעירייה מחוץ ל-`providers/`.
 - כל Provider חדש מקבל בדיקות ב-`tests/` עם תגובות שמורות (fixtures). בזמן בדיקות אין פנייה לרשת.
@@ -50,7 +51,12 @@ ParcelDocs: פוליליין סגור ב-AutoCAD/ZWCAD (ITM, EPSG:2039) ← זי
 - הפעלה ברקע: `start_service.ps1`. הסקריפט מפעיל את השירות בחלון מוסתר, עם לוג ב-`output\.cache\service.*.log`, ולא עושה כלום אם השירות כבר עונה. משימת Task Scheduler בשם "ParcelDocs Service" מריצה אותו בכל כניסה ל-Windows. הפעלה ידנית של המשימה: `Start-ScheduledTask -TaskName "ParcelDocs Service"`.
 - אחרי שינוי ב-`config.yaml` או בקוד צריך להפעיל מחדש: לעצור את תהליכי `python -m app.main` ולהריץ את המשימה.
 - מבא"ת חצי-אוטומטי לפרויקט קיים: `.venv\Scripts\python -m app.mavat_assist --folder "<תיקיית פרויקט>"`
-- ספרייה משרדית: `plans_library` ב-`config.yaml` (כרגע `C:/ParcelDocs_Library`, זמני עד שתעבור לשרת המשרד). תיקיית ההורדות: `downloads_dir` (ברירת מחדל `~/Downloads`).
+- **ספרייה משרדית** (PRD §4.3.1): `plans_library` ב-`config.yaml`, בנתיב UNC `//server/מסמכים משותפים/ראשי/עבודות/תב''עות` (זה `Y:`, אבל האות לא תמיד מחוברת כשהשירות עולה).
+  - **מבנה:** `<עיר>/<תכנית>/plan.json`. הרשומה היא `plan.json`. האינדקס הוא SQLite מקומי (`output\.cache\library_index.sqlite`), ואסור להעביר אותו לתיקיית הרשת.
+  - **כשהרשת לא זמינה:** קבצים חדשים נשמרים ב-`output\.cache\library_local` ומסונכרנים כשהיא חוזרת.
+  - **פקודות:** `.venv\Scripts\python -m app.library list|scope|sync|rebuild|migrate|import-office`.
+  - **`import-office`** מעתיק תב"עות שהמשרד שמר (`עבודות\00-תב''ע`, `עבודות\00תבע`) ולא משנה את המקור. העותקים נשמרים תחת `משרד/` עם מקור `office`, ולא מחליפים מסמכים ממקור.
+- תיקיית ההורדות: `downloads_dir` (ברירת מחדל `~/Downloads`).
 - מקורות שאפשר להשבית ב-`disabled_sources`: `bnei_brak`, `rmi`.
 
 מתוך `plugin/ParcelDocs.Plugin/` (.NET SDK 8, יעד net48):

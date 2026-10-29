@@ -25,6 +25,18 @@ def test_health(tmp_path: Path):
     body = client.get("/health").json()
     assert body["status"] == "ok"
     assert body["sources"]["bnei_brak"] == "disabled"
+    assert body["library"] == "off"
+
+
+def test_health_reports_the_library(tmp_path: Path):
+    config = _config(tmp_path, ["bnei_brak"])
+    config.plans_library = tmp_path / "share"
+    client = TestClient(create_app(config, offline_http(_handler([]))))
+    library = client.get("/health").json()["library"]
+    assert library["available"] is False and library["pending_local"] == 0
+    config.plans_library.mkdir()
+    library = client.get("/health").json()["library"]
+    assert library["available"] is True and library["path"] == str(tmp_path / "share")
 
 
 def test_resolve_then_download_selected_items(tmp_path: Path):
@@ -101,6 +113,7 @@ def test_mavat_step_files_manual_downloads(tmp_path: Path):
     config.downloads_dir = tmp_path / "Downloads"
     config.downloads_dir.mkdir()
     config.plans_library = tmp_path / "library"
+    config.plans_library.mkdir()
     opened: list[str] = []
     client = TestClient(create_app(config, offline_http(_handler([])), opener=opened.append))
     body = client.post("/resolve", json={"vertices": PARCEL_443}).json()
@@ -130,7 +143,7 @@ def test_mavat_step_files_manual_downloads(tmp_path: Path):
     assert all(p["done"] for p in status["plans"])
     assert client.post("/mavat/stop").status_code == 200
     assert client.get("/mavat/status").status_code == 404
-    assert (tmp_path / "library" / "501-0175646" / "הוראות.pdf").is_file()
+    assert (tmp_path / "library" / "בני_ברק" / "501-0175646" / "הוראות.pdf").is_file()
 
 
 def test_mavat_start_needs_a_project_folder(tmp_path: Path):

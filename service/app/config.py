@@ -35,6 +35,15 @@ class Config(BaseModel):
     disabled_sources: list[str] = []
     # Shared office folder of plan documents, checked before any source; None = off.
     plans_library: Path | None = None
+    # Local copy used while the shared folder cannot be reached (default: next to cache_db).
+    plans_library_local: Path | None = None
+    # This computer's index of the library (SQLite); rebuilt from plan.json when deleted.
+    library_index: Path | None = None
+    # A plan whose documents are not complete in the library is listed again in the city
+    # system (Complot GetTabaFile) only after this many days.
+    library_recheck_days: int = 30
+    # A plan whose boundary covers at least this share of the municipality is city-wide.
+    citywide_min_share: float = 0.5
     # Where the browser saves files the user downloads from mavat; None = ~/Downloads.
     downloads_dir: Path | None = None
     # Move filed downloads into a subfolder of downloads_dir instead of leaving them.
@@ -47,13 +56,25 @@ def load_config(path: Path | None = None) -> Config:
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     config = Config.model_validate(raw)
     base = path.parent
-    config.output_dir = (base / config.output_dir).resolve()
-    config.cache_db = (base / config.cache_db).resolve()
+    config.output_dir = _resolve(base, config.output_dir)
+    config.cache_db = _resolve(base, config.cache_db)
     if config.plans_library is not None:
-        config.plans_library = (base / config.plans_library).resolve()
+        config.plans_library = _resolve(base, config.plans_library)
+    config.plans_library_local = _resolve(
+        base, config.plans_library_local or config.cache_db.parent / "library_local"
+    )
+    config.library_index = _resolve(
+        base, config.library_index or config.cache_db.parent / "library_index.sqlite"
+    )
     if config.downloads_dir is not None:
-        config.downloads_dir = (base / config.downloads_dir.expanduser()).resolve()
+        config.downloads_dir = _resolve(base, config.downloads_dir.expanduser())
     return config
+
+
+def _resolve(base: Path, path: Path) -> Path:
+    # An absolute path (such as //server/share) is kept as written: resolving it would
+    # touch the network, which blocks while the server cannot be reached.
+    return path if path.is_absolute() else (base / path).resolve()
 
 
 def downloads_dir(config: Config) -> Path:

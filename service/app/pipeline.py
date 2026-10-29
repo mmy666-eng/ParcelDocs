@@ -3,32 +3,66 @@
 resolve finds parcels, approved plans and granted permits without downloading;
 download fetches the documents of the items the user kept and builds the folder.
 
-Plan names come from iplan, the Israel Land Authority (rmi) and the city system.
-Plan documents are taken from the first of: the office library (when it has both the
-instructions and a map), rmi, the city system, a partial library entry. Plans with
-none of these are left for the semi-automatic mavat step (app.mavat_assist).
+Plan names come from the office library and from iplan, the Israel Land Authority (rmi)
+and the city system (PRD §4.3): (א) the library's index is searched for the place, (ב) the
+sources are asked only to discover new plans and changes, (ג) only documents the library
+does not have are downloaded – the library first, then rmi, then the city system – and
+(ד) the library is updated. Plans still without documents are left for the
+semi-automatic mavat step (app.mavat_assist).
 """
 
 import logging
 import re
 import threading
 import uuid
+from collections import Counter
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
 
 from pydantic import BaseModel
+from shapely import wkt
 from shapely.geometry.base import BaseGeometry
 
 from app.config import Config
 from app.download.cache import DownloadCache
 from app.download.downloader import Downloader, HttpClient, SourceError
 from app.geo.cadastre import GovMapCadastre, check_itm, parcel_geometry
-from app.models import Address, Document, DocumentKind, ManifestEntry, Parcel, Permit, Plan
-from app.output.library import LIBRARY_SOURCE, LibraryError, PlansLibrary
+from app.models import (
+    Address,
+    Document,
+    DocumentKind,
+    ManifestEntry,
+    Parcel,
+    Permit,
+    Plan,
+    PlanScope,
+)
+from app.output.library import (
+    LIBRARY_SOURCE,
+    OFFICE_SOURCE,
+    LibraryError,
+    LibraryPlan,
+    NewFile,
+)
+from app.output.library_index import IndexedPlan
+from app.output.office_library import (
+    MANUAL_NOTE,
+    LibraryUpdate,
+    OfficeLibrary,
+    recently_checked,
+)
 from app.output.organizer import OutputOrganizer
+from app.output.plan_scope import (
+    NATIONAL_AUTHORITY,
+    ScopeBasis,
+    ScopeDecision,
+    city_key,
+    classify_scope,
+)
 from app.providers.bnei_brak import (
+    IN_FORCE,
     BneiBrakPermitsProvider,
     BneiBrakPlansProvider,
     ComplotClient,
@@ -36,9 +70,11 @@ from app.providers.bnei_brak import (
     is_granted,
     select_documents,
 )
+from app.providers.iplan import SOURCE as IPLAN_SOURCE
 from app.providers.iplan import IplanPlansProvider
 from app.providers.rmi import SOURCE as RMI_SOURCE
 from app.providers.rmi import RmiPlansProvider
+from app.utils.plan_numbers import is_national_number, local_key, national_numbers_in
 
 log = logging.getLogger("parceldocs")
 
@@ -60,10 +96,7 @@ LIBRARY_UNAVAILABLE = "הספרייה המשרדית לא זמינה"
 
 CORE_KINDS = (DocumentKind.INSTRUCTIONS, DocumentKind.MAP)
 
-_NATIONAL_NUMBER = re.compile(r"\d{3}-\d{7}")
 _LOCAL_NUMBER = re.compile(r"(?:בב/)?((?:מק/)?\d+(?:/[֐-׿\d]+)+)")
-_CITY_PREFIX = re.compile(r"^בב\s*/\s*")
-_NOT_KEY_CHARS = re.compile(r"[\W_]+")
 
 
 class NotFoundError(ValueError):
@@ -83,6 +116,10 @@ class ResolveResult(BaseModel):
     polygon_wkt: str | None = None
     # Log lines of the resolve step; the folder (and run.log) exists only at download.
     log: list[str] = []
+    # Municipality of the parcels (cadastre), e.g. "בני ברק".
+    city: str | None = None
+    # Per plan id: what to write to the office library after the download (step ד).
+    library_updates: dict[str, LibraryUpdate] = {}
 
 
 class DownloadResult(BaseModel):
@@ -105,21 +142,9 @@ def permit_id(permit: Permit) -> str:
 
 def plan_keys(plan: Plan) -> tuple[set[str], set[str]]:
     """National (501-xxxxxxx) and local (מק/105/ה) plan numbers mentioned by a plan."""
-    text = f"{plan.number} {plan.name}"
-    national = set(_NATIONAL_NUMBER.findall(text))
+    national = national_numbers_in(f"{plan.number} {plan.name}")
     local = set(_LOCAL_NUMBER.findall(plan.number.replace(" ", "")))
     return national, local
-
-
-def is_national_number(number: str) -> bool:
-    return _NATIONAL_NUMBER.fullmatch(number.strip()) is not None
-
-
-def local_key(number: str) -> str | None:
-    """Comparable form of a local plan number: rmi "בב/105א" and Complot "105/א" → "105א"."""
-    if is_national_number(number):
-        return None
-    return _NOT_KEY_CHARS.sub("", _CITY_PREFIX.sub("", number.strip())) or None
 
 
 def merge_plans(iplan_plans: list[Plan], city_plans: list[Plan]) -> list[Plan]:
@@ -153,6 +178,10 @@ def merge_plans(iplan_plans: list[Plan], city_plans: list[Plan]) -> list[Plan]:
         city.plan_type = city.plan_type or iplan_plan.plan_type
         city.approval_date = city.approval_date or iplan_plan.approval_date
         city.mavat_url = iplan_plan.mavat_url
+        city.source_ids = {**iplan_plan.source_ids, **city.source_ids}
+        city.city = city.city or iplan_plan.city
+        city.authority_level = iplan_plan.authority_level
+        city.boundary_wkt = iplan_plan.boundary_wkt
     return merged
 
 
@@ -173,6 +202,7 @@ def merge_rmi(plans: list[Plan], rmi_plans: list[Plan]) -> list[Plan]:
         plan.source = f"{plan.source}+{RMI_SOURCE}"
         plan.approval_date = plan.approval_date or rmi_plan.approval_date
         plan.name = plan.name or rmi_plan.name
+        plan.source_ids = {**rmi_plan.source_ids, **plan.source_ids}
         plan.documents = [*plan.documents, *rmi_plan.documents]
     return merged
 
@@ -203,19 +233,46 @@ def has_core_documents(documents: list[Document]) -> bool:
 def choose_documents(plan: Plan, library_documents: list[Document]) -> tuple[list[Document], str]:
     """The documents to download and where they come from; ([], "") when there are none.
 
-    Order: a complete library entry, rmi, the city system (approved versions), and a
-    partial library entry. A source with instructions or a map beats one with only
-    appendices.
+    Office copies in the library (kept by hand, named by the office) are added only when
+    the plan would otherwise lack instructions or a map.
     """
+    office = [d for d in library_documents if d.origin_source == OFFICE_SOURCE]
+    documents, source = _choose_documents(
+        plan, [d for d in library_documents if d.origin_source != OFFICE_SOURCE]
+    )
+    present = {d.kind for d in documents}
+    missing = [kind for kind in CORE_KINDS if kind not in present]
+    extra = [d for d in office if missing and (d.kind in missing or d.kind is None)]
+    if extra:
+        return [*documents, *extra], f"{source}+{OFFICE_SOURCE}" if source else OFFICE_SOURCE
+    return documents, source
+
+
+def _choose_documents(plan: Plan, library_documents: list[Document]) -> tuple[list[Document], str]:
+    """Without office copies.
+
+    A complete library entry (instructions and a map) is used as it is. Otherwise every
+    kind the library has comes from it, and only the missing kinds from the first source
+    with instructions or a map: rmi, then the city system (approved versions). Then a
+    partial library entry, then a source with appendices only.
+    """
+    if has_core_documents(library_documents):
+        return library_documents, LIBRARY_SOURCE
+    in_library = {d.kind for d in library_documents}
     candidates = [
-        (library_documents if has_core_documents(library_documents) else [], LIBRARY_SOURCE),
         ([d for d in plan.documents if d.source == RMI_SOURCE], RMI_SOURCE),
         (select_documents([d for d in plan.documents if d.source == CITY_SOURCE]), CITY_SOURCE),
-        (library_documents, LIBRARY_SOURCE),
     ]
     for documents, source in candidates:
         if any(d.kind in CORE_KINDS for d in documents):
-            return documents, source
+            if not library_documents:
+                return documents, source
+            missing = [d for d in documents if d.kind not in in_library]
+            if missing:
+                return [*library_documents, *missing], f"{LIBRARY_SOURCE}+{source}"
+            return library_documents, LIBRARY_SOURCE
+    if library_documents:
+        return library_documents, LIBRARY_SOURCE
     for documents, source in candidates:
         if documents:
             return documents, source
@@ -306,8 +363,64 @@ def make_http(config: Config) -> HttpClient:
     )
 
 
-def make_library(config: Config) -> PlansLibrary | None:
-    return PlansLibrary(config.plans_library) if config.plans_library else None
+def make_library(config: Config) -> OfficeLibrary | None:
+    if config.plans_library is None:
+        return None
+    cache = config.cache_db.parent
+    return OfficeLibrary(
+        config.plans_library,
+        config.plans_library_local or cache / "library_local",
+        config.library_index or cache / "library_index.sqlite",
+    )
+
+
+def plan_from_library(entry: LibraryPlan) -> Plan:
+    """A plan that only the library knows for this place."""
+    return Plan(
+        number=entry.number,
+        name=entry.name,
+        status=entry.status or "",
+        source=LIBRARY_SOURCE,
+        aliases=[a for a in entry.aliases if a != entry.number],
+        plan_type=entry.plan_type,
+        approval_date=entry.approval_date,
+        mavat_url=entry.mavat_url,
+        city=entry.city,
+        scope=entry.scope,
+        source_ids={ref.source: ref.id for ref in entry.sources},
+        boundary_wkt=entry.boundary_wkt,
+    )
+
+
+def apply_library_record(plan: Plan, entry: LibraryPlan) -> None:
+    """What the library knows and this run's sources did not say, and changes since."""
+    for number in entry.numbers():
+        if number != plan.number and number not in plan.aliases:
+            plan.aliases.append(number)
+    for ref in entry.sources:
+        plan.source_ids.setdefault(ref.source, ref.id)
+    plan.name = plan.name or entry.name
+    plan.city = plan.city or entry.city
+    plan.plan_type = plan.plan_type or entry.plan_type
+    plan.approval_date = entry.approval_date or plan.approval_date
+    plan.mavat_url = plan.mavat_url or entry.mavat_url
+    plan.boundary_wkt = plan.boundary_wkt or entry.boundary_wkt
+    if entry.status and plan.status and entry.status != plan.status:
+        log.info(
+            "plan %s: status in the library %r, now %r", plan.number, entry.status, plan.status
+        )
+
+
+def known_decision(
+    library: OfficeLibrary | None, plan: Plan, entry: LibraryPlan | None
+) -> ScopeDecision | None:
+    """plan_scope decided before: a manual correction, or a final automatic decision."""
+    override = library.override_for(plan) if library else None
+    if override is not None:
+        return ScopeDecision(scope=override, basis=ScopeBasis.MANUAL, note=MANUAL_NOTE)
+    if entry is not None and entry.scope_basis != ScopeBasis.DEFAULT:
+        return ScopeDecision(scope=entry.scope, basis=entry.scope_basis, note=entry.scope_note)
+    return None
 
 
 class Pipeline:
@@ -324,6 +437,8 @@ class Pipeline:
         self.iplan = IplanPlansProvider(self.http, sources.iplan_plans_layer)
         self.rmi = RmiPlansProvider(self.http, sources.rmi_api, sources.rmi_files)
         self.library = make_library(config)
+        # Cities whose boundary GovMap was asked for in this run.
+        self._municipalities_tried: set[str] = set()
 
     def resolve_parcel(self, gush: int, helka: int) -> ResolveResult:
         self.http.start_run()
@@ -362,9 +477,14 @@ class Pipeline:
         iplan_query: BaseGeometry | None,
         warnings: list[str],
     ) -> ResolveResult:
+        library = self.library
+        self._municipalities_tried = set()
+        if library is not None:
+            warnings.extend(library.open())
         city_available = CITY_SOURCE not in self.config.disabled_sources
         status = {(p.gush, p.helka): p.status for p in cadastre_parcels}
         geometries = {(p.gush, p.helka): p.geometry_wkt for p in cadastre_parcels}
+        run_city = _most_common_city(cadastre_parcels)
         resolved_by_request: dict[tuple[int, int], list[GushFile]] = {}
         if not city_available:
             warnings.append(CITY_DISABLED)
@@ -403,23 +523,48 @@ class Pipeline:
                 helka=g.helka,
                 addresses=g.addresses,
                 status=status.get(key),
+                city=run_city,
                 geometry_wkt=geometries.get(key),
             )
             for key, g in unique.items()
         ]
+        all_parcels = list(dict.fromkeys([*requested, *unique]))
 
+        # (א) The library's index, for this place.
+        in_library: list[IndexedPlan] = []
+        if library is not None:
+            if run_city and iplan_query is not None:
+                self._city_boundary(run_city, iplan_query)
+            in_library = library.search(iplan_query, run_city, all_parcels)
+            log.info("library: %d plans for this place in the index", len(in_library))
+
+        # (ב) The sources, to discover new plans and changes. hits: the parcels each
+        # source reported a plan for ("source:id" → parcels).
+        reported_by: set[str] = set()
+        hits: dict[str, set[tuple[int, int]]] = {}
         iplan_plans: list[Plan] = []
         if iplan_query is not None:
             try:
                 iplan_plans = self.iplan.find_by_polygon(iplan_query)
+                reported_by.add(IPLAN_SOURCE)
             except SourceError as exc:
                 log.error("iplan unavailable: %s", exc)
                 warnings.append(f"{IPLAN_UNAVAILABLE}: {exc}")
 
         city_plans: list[Plan] = []
+        skip_details: set[int] = set()
         if city_available:
+            for request, resolved in resolved_by_request.items():
+                for gush_file in resolved:
+                    for ref in gush_file.plans:
+                        if ref.status == IN_FORCE:
+                            hits.setdefault(f"{CITY_SOURCE}:{ref.complot_id}", set()).update(
+                                {(gush_file.gush, gush_file.helka), request}
+                            )
+            skip_details = self._documents_in_library(list(unique.values()))
             try:
-                city_plans = self.city_plans.find_by_parcels(list(unique.values()))
+                city_plans = self.city_plans.find_by_parcels(list(unique.values()), skip_details)
+                reported_by.add(CITY_SOURCE)
             except SourceError as exc:
                 log.error("Complot unavailable: %s", exc)
                 warnings.append(f"{CITY_UNAVAILABLE}: {exc}")
@@ -428,11 +573,39 @@ class Pipeline:
 
         if RMI_SOURCE not in self.config.disabled_sources:
             try:
-                rmi_parcels = list(dict.fromkeys([*requested, *unique]))
-                plans = merge_rmi(plans, self._rmi_plans(rmi_parcels, plans))
+                plans = merge_rmi(plans, self._rmi_plans(all_parcels, plans, hits))
+                reported_by.add(RMI_SOURCE)
             except SourceError as exc:
                 log.error("rmi unavailable: %s", exc)
                 warnings.append(f"{RMI_UNAVAILABLE}: {exc}")
+
+        for plan in plans:
+            if plan.authority_level != NATIONAL_AUTHORITY:
+                plan.city = plan.city or run_city
+        records: dict[str, IndexedPlan] = {}
+        if library is not None:
+            plans, records = self._with_library(plans, in_library, reported_by)
+
+        updates: dict[str, LibraryUpdate] = {}
+        skipped = {str(i) for i in skip_details}
+        for plan in plans:
+            record = records.get(plan_id(plan))
+            entry = record.plan if record else None
+            decision = known_decision(library, plan, entry) or self._classify(plan)
+            plan.scope = decision.scope
+            found_for: set[tuple[int, int]] = set()
+            for source, source_id in plan.source_ids.items():
+                found_for |= hits.get(f"{source}:{source_id}", set())
+            sources = plan.source.split("+")
+            checked = [RMI_SOURCE] if RMI_SOURCE in sources else []
+            if CITY_SOURCE in sources and plan.source_ids.get(CITY_SOURCE) not in skipped:
+                checked.append(CITY_SOURCE)
+            updates[plan_id(plan)] = LibraryUpdate(
+                decision=decision,
+                parcels=sorted(found_for),
+                checked_sources=checked,
+                reported=plan.source != LIBRARY_SOURCE,
+            )
 
         plan_documents = self._plan_documents(plans, city_available, warnings)
 
@@ -459,20 +632,128 @@ class Pipeline:
             permits=permits,
             permit_documents=permit_documents,
             warnings=warnings,
+            city=run_city,
+            library_updates=updates,
         )
 
-    def _rmi_plans(self, parcels: list[tuple[int, int]], known: list[Plan]) -> list[Plan]:
+    def _documents_in_library(self, gush_files: list[GushFile]) -> set[int]:
+        """Complot ids whose plan file (GetTabaFile) is not needed: the library has the
+        instructions and a map, or checked the city system recently."""
+        library = self.library
+        if library is None or not library.available:
+            return set()
+        ids = {ref.complot_id for g in gush_files for ref in g.plans if ref.status == IN_FORCE}
+        ids |= set(self.config.citywide_plans)
+        skip = set()
+        for complot_id in ids:
+            item = library.find_source(CITY_SOURCE, str(complot_id))
+            if item is not None and (
+                item.plan.complete()
+                or recently_checked(item.plan, CITY_SOURCE, self.config.library_recheck_days)
+            ):
+                skip.add(complot_id)
+        return skip
+
+    def _with_library(
+        self, plans: list[Plan], in_library: list[IndexedPlan], reported_by: set[str]
+    ) -> tuple[list[Plan], dict[str, IndexedPlan]]:
+        """Join this run's plans with their library records, and add the plans that only
+        the library knows for this place – unless a source that reported such a plan
+        before was asked now and did not report it."""
+        assert self.library is not None
+        records: dict[str, IndexedPlan] = {}
+        matched: set[str] = set()
+        for plan in plans:
+            record = self.library.find(plan)
+            if record is None:
+                log.info("library: new plan %s", plan.number)
+                continue
+            apply_library_record(plan, record.plan)
+            records[plan_id(plan)] = record
+            matched |= record.plan.match_keys()
+        for record in in_library:
+            entry = record.plan
+            if entry.match_keys() & matched:
+                continue
+            asked = {ref.source for ref in entry.sources} & reported_by
+            kept_citywide = entry.scope == PlanScope.CITYWIDE and entry.scope_basis in (
+                ScopeBasis.MANUAL,
+                ScopeBasis.CONFIG,
+            )
+            if asked and not kept_citywide:
+                log.info(
+                    "library: plan %s not reported by %s this time – left out",
+                    entry.number,
+                    ", ".join(sorted(asked)),
+                )
+                continue
+            plan = plan_from_library(entry)
+            log.info("library: plan %s found only in the library (%s)", plan.number, entry.scope)
+            plans.append(plan)
+            records[plan_id(plan)] = record
+            matched |= entry.match_keys()
+        return plans, records
+
+    def _classify(self, plan: Plan) -> ScopeDecision:
+        boundary = wkt.loads(plan.boundary_wkt) if plan.boundary_wkt else None
+        city_boundary = self._city_boundary(plan.city, boundary) if boundary is not None else None
+        return classify_scope(
+            plan,
+            boundary,
+            city_boundary,
+            self.config.citywide_min_share,
+            {str(i) for i in self.config.citywide_plans},
+        )
+
+    def _city_boundary(self, city: str | None, near: BaseGeometry) -> BaseGeometry | None:
+        """The municipal boundary of a city, from the library's index or GovMap (once)."""
+        library = self.library
+        key = city_key(city)
+        if library is None or not key:
+            return None
+        cached = library.city_boundary(city)
+        if cached is not None or key in self._municipalities_tried:
+            return cached
+        self._municipalities_tried.add(key)
+        point = near.representative_point()
+        try:
+            municipality = self.cadastre.municipality_at(point.x, point.y)
+        except SourceError as exc:
+            log.warning("GovMap municipalities unavailable: %s", exc)
+            return None
+        if municipality is None:
+            return None
+        library.put_city(municipality.name, municipality.boundary_wkt)
+        if city_key(municipality.name) != key:
+            log.info("GovMap: %s is not the municipality of %s", municipality.name, city)
+            return None
+        return wkt.loads(municipality.boundary_wkt)
+
+    def _rmi_plans(
+        self,
+        parcels: list[tuple[int, int]],
+        known: list[Plan],
+        hits: dict[str, set[tuple[int, int]]],
+    ) -> list[Plan]:
         """rmi plans by parcel, plus a lookup by number for national-numbered plans that
-        other sources found but rmi did not link to these parcels."""
+        other sources found but rmi did not link to these parcels (unless the library
+        already has their instructions and map)."""
         found: dict[str, Plan] = {}
         for gush, helka in parcels:
             for plan in self.rmi.find_by_parcel(gush, helka):
                 found.setdefault(plan.source_id or plan.number, plan)
+                if plan.source_id:
+                    hits.setdefault(f"{RMI_SOURCE}:{plan.source_id}", set()).add((gush, helka))
         numbers = {p.number for p in found.values()}
+        library = self.library if self.library is not None and self.library.available else None
         for plan in known:
-            if is_national_number(plan.number) and plan.number not in numbers:
-                for extra in self.rmi.find_by_number(plan.number):
-                    found.setdefault(extra.source_id or extra.number, extra)
+            if not is_national_number(plan.number) or plan.number in numbers:
+                continue
+            record = library.find(plan) if library else None
+            if record is not None and record.plan.complete():
+                continue
+            for extra in self.rmi.find_by_number(plan.number):
+                found.setdefault(extra.source_id or extra.number, extra)
         return list(found.values())
 
     def _plan_documents(
@@ -485,7 +766,7 @@ class Pipeline:
             if library is not None:
                 try:
                     library_documents = library.documents(plan)
-                except LibraryError as exc:
+                except (LibraryError, OSError) as exc:
                     log.error("library unavailable: %s", exc)
                     warnings.append(f"{LIBRARY_UNAVAILABLE}: {exc}")
                     library = None
@@ -573,7 +854,7 @@ class Pipeline:
         finally:
             cache.close()
 
-        self._add_to_library(plans, done, organizer, warnings)
+        self._update_library(result, done, organizer, warnings)
         pending = [
             plan_id(p)
             for p in plans
@@ -606,27 +887,41 @@ class Pipeline:
             mavat_pending=pending,
         )
 
-    def _add_to_library(
+    def _update_library(
         self,
-        plans: list[Plan],
+        result: ResolveResult,
         done: dict[str, list[tuple[Document, Path]]],
         organizer: OutputOrganizer,
         warnings: list[str],
     ) -> None:
-        """Files that came from a source (not from the library itself) go into the library."""
+        """(ד) Every plan found goes into the library, with the files that came from a
+        source (not from the library itself) for the plans that were downloaded."""
         if self.library is None:
             return
-        for plan in plans:
-            new = [
-                (doc, path, path.relative_to(organizer.plan_dir(plan)).as_posix())
+        for plan in result.plans:
+            update = result.library_updates.get(plan_id(plan))
+            if update is None:
+                continue
+            files = [
+                NewFile(
+                    local_path=path,
+                    path=path.relative_to(organizer.plan_dir(plan)).as_posix(),
+                    kind=doc.kind,
+                    title=doc.title,
+                    source=doc.origin_source or doc.source,
+                    url=doc.origin_url or doc.url,
+                )
                 for doc, path in done.get(plan_id(plan), [])
                 if doc.source != LIBRARY_SOURCE
             ]
-            if not new:
-                continue
             try:
-                self.library.add(plan, new)
+                self.library.record(plan, update, files, warnings)
             except (LibraryError, OSError) as exc:
                 log.error("library: cannot add plan %s: %s", plan.number, exc)
                 warnings.append(f"{LIBRARY_UNAVAILABLE} – תכנית {plan.number} לא נשמרה בה")
                 return
+
+
+def _most_common_city(parcels: list[Parcel]) -> str | None:
+    cities = Counter(p.city for p in parcels if p.city)
+    return cities.most_common(1)[0][0] if cities else None

@@ -15,7 +15,7 @@ from app.mavat_assist import (
     national_numbers,
 )
 from app.models import DocumentKind
-from app.output.library import PlansLibrary
+from app.output.office_library import OfficeLibrary
 from app.utils.pdf import PdfInfo, read_pdf, repair_text
 from tests.conftest import make_pdf
 
@@ -60,11 +60,16 @@ def downloads(tmp_path: Path) -> Path:
     return folder
 
 
+def _library(tmp_path: Path) -> OfficeLibrary:
+    (tmp_path / "library").mkdir(exist_ok=True)
+    return OfficeLibrary(tmp_path / "library", tmp_path / "local", tmp_path / "index.sqlite")
+
+
 def _assist(project: Path, downloads: Path, tmp_path: Path, opened: list[str] | None = None):
     return MavatAssist(
         project,
         downloads,
-        PlansLibrary(tmp_path / "library"),
+        _library(tmp_path),
         opener=(opened.append if opened is not None else lambda url: None),
     )
 
@@ -103,13 +108,17 @@ def test_files_by_number_in_name_and_in_content(project: Path, downloads: Path, 
     assert entry["manual_action"] is None
     assert entry["documents_source"] == "mavat"
     assert {f["source"] for f in manifest["files"]} == {"mavat"}
+    # The manifest has no city (made before 2026-10-29): Bnei Brak, the only city system.
     library_entry = json.loads(
-        (tmp_path / "library" / "501-0175646" / "plan.json").read_text("utf-8")
+        (tmp_path / "library" / "בני_ברק" / "501-0175646" / "plan.json").read_text("utf-8")
     )
     assert sorted((f["path"], f["source"]) for f in library_entry["files"]) == [
         ("הוראות.pdf", "mavat"),
         ("תשריט.pdf", "mavat"),
     ]
+    assert library_entry["city"] == "בני ברק"
+    assert library_entry["scope"] == "ספציפית"
+    assert library_entry["scope_basis"] == "default"
     log = (project / "99_לוג" / "run.log").read_text("utf-8")
     assert "mavat: הוראות התכנית 501-0175646.pdf" in log
 

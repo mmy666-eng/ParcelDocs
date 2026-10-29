@@ -48,7 +48,18 @@ def run(
     return 0
 
 
-SOURCE_LABELS = {"library": "ספרייה", "rmi": 'רמ"י', "bnei_brak": "עירייה", "mavat": 'מבא"ת'}
+SOURCE_LABELS = {
+    "library": "ספרייה",
+    "rmi": 'רמ"י',
+    "bnei_brak": "עירייה",
+    "mavat": 'מבא"ת',
+    "office": "עותק משרדי",
+}
+
+
+def source_label(source: str | None) -> str:
+    """ "library+rmi" → "ספרייה + רמ"י"."""
+    return " + ".join(SOURCE_LABELS.get(part, part) for part in (source or "").split("+") if part)
 
 
 def _print_summary(
@@ -61,9 +72,10 @@ def _print_summary(
     for plan in result.plans:
         when = plan.approval_date.isoformat() if plan.approval_date else "-"
         docs = len(result.plan_documents.get(plan_id(plan), []))
-        source = SOURCE_LABELS.get(plan.documents_source or "", plan.documents_source)
+        source = source_label(plan.documents_source)
         note = f"  ⚠ {plan.manual_action}" if plan.manual_action else f"  {docs} מסמכים ({source})"
-        print(f"  {plan.number:<16} {when}  {plan.name[:50]}{note}")
+        scope = f" [{plan.scope.value}]" if plan.scope else ""
+        print(f"  {plan.number:<16} {when}  {plan.name[:50]}{scope}{note}")
     print(f"\nהיתרי בנייה ({len(result.permits)}):")
     for permit in result.permits:
         when = str(permit.date or permit.request_date or "-")

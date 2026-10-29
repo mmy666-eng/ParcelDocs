@@ -200,10 +200,12 @@ def test_city_and_rmi_disabled_leaves_plans_for_mavat(tmp_path: Path):
 def test_library_is_filled_then_used_before_any_source(tmp_path: Path):
     config = _config(tmp_path, ["bnei_brak"])
     config.plans_library = tmp_path / "library"
+    config.plans_library.mkdir()
     first: list[str] = []
     run(config, 6123, 443, "ראשון", http=offline_http(_handler(first)), today=date(2026, 10, 28))
 
-    roof = tmp_path / "library" / "501-0873794"
+    # The parcel is in Bnei Brak (cadastre LOCALITY_N), so the plan is filed under its city.
+    roof = tmp_path / "library" / "בני_ברק" / "501-0873794"
     assert (roof / "הוראות.pdf").is_file()
     assert (roof / "נספחים" / "בינוי.pdf").is_file()
     entry = json.loads((roof / "plan.json").read_text(encoding="utf-8"))

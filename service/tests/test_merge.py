@@ -94,7 +94,7 @@ def test_rmi_local_number_matches_city_number_written_differently():
     assert local_key("501-0873794") is None
 
 
-def test_documents_come_from_complete_library_then_rmi_then_city():
+def test_documents_come_from_the_library_and_only_missing_kinds_from_rmi_or_city():
     city_doc = Document(title="תקנון לתוקף", url="https://archive/x.pdf", source="bnei_brak",
                         kind=DocumentKind.INSTRUCTIONS)  # fmt: skip
     plan = _rmi("501-0873794", DocumentKind.INSTRUCTIONS, DocumentKind.MAP)
@@ -106,12 +106,19 @@ def test_documents_come_from_complete_library_then_rmi_then_city():
     ]  # fmt: skip
 
     assert choose_documents(plan, library_full) == (library_full, "library")
-    # A library entry without a map does not beat rmi.
+    # A library entry without a map: its instructions, and only the map from rmi.
     documents, source = choose_documents(plan, library_full[:1])
-    assert source == "rmi" and len(documents) == 2
-    # Without rmi documents the city's approved version is used.
+    assert source == "library+rmi"
+    assert [(d.source, d.kind) for d in documents] == [
+        ("library", DocumentKind.INSTRUCTIONS),
+        ("rmi", DocumentKind.MAP),
+    ]
+    # No library entry: rmi; without rmi documents, the city's approved version.
+    assert choose_documents(plan, [])[1] == "rmi"
     city_only = plan.model_copy(update={"documents": [city_doc]})
-    assert choose_documents(city_only, library_full[:1]) == ([city_doc], "bnei_brak")
+    assert choose_documents(city_only, []) == ([city_doc], "bnei_brak")
+    # The city has only what the library already has: nothing is downloaded again.
+    assert choose_documents(city_only, library_full[:1]) == (library_full[:1], "library")
     # Nothing anywhere but a partial library entry: use it.
     empty = plan.model_copy(update={"documents": []})
     assert choose_documents(empty, library_full[:1]) == (library_full[:1], "library")

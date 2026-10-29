@@ -1,5 +1,6 @@
 import httpx
 import pytest
+from shapely import wkt
 from shapely.geometry import box
 
 from app.geo.cadastre import CoordinatesOutOfRangeError, GovMapCadastre, parcel_geometry
@@ -22,12 +23,24 @@ def test_get_parcel_with_geometry():
 
     assert parcel is not None
     assert (parcel.gush, parcel.helka, parcel.status) == (6123, 443, "מוסדר")
+    assert parcel.city == "בני ברק"
     geometry = parcel_geometry(parcel)
     assert geometry is not None
     assert 480 < geometry.area < 520
     params = seen[0].url.params
     assert params["cql_filter"] == "GUSH_NUM=6123 AND PARCEL=443"
     assert params["srsName"] == "EPSG:2039"
+
+
+def test_municipality_at_a_point():
+    seen: list[httpx.Request] = []
+    municipality = _cadastre("govmap_muni_bnei_brak.json", seen).municipality_at(183620, 665826)
+
+    assert municipality is not None and municipality.name == "בני ברק"
+    assert 7_300_000 < wkt.loads(municipality.boundary_wkt).area < 7_400_000
+    params = seen[0].url.params
+    assert params["typeNames"] == "opendata:muni_il"
+    assert params["cql_filter"] == "INTERSECTS(the_geom, SRID=2039;POINT(183620.00 665826.00))"
 
 
 def test_missing_parcel_returns_none():

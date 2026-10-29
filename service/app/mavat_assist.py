@@ -36,9 +36,12 @@ from pydantic import BaseModel
 
 from app.config import downloads_dir, load_config
 from app.models import Document, DocumentKind, ManifestEntry, Plan
-from app.output.library import LibraryError, PlansLibrary
+from app.output.library import LibraryError, NewFile
+from app.output.office_library import LibraryUpdate, OfficeLibrary
 from app.output.organizer import APPENDICES_DIR, OutputOrganizer
-from app.pipeline import is_national_number, local_key, make_library, plan_id
+from app.output.plan_scope import classify_scope
+from app.pipeline import is_national_number, known_decision, local_key, make_library, plan_id
+from app.providers.bnei_brak import CITY_NAME
 from app.utils.filenames import long_path, safe_name
 from app.utils.pdf import LARGE_PAGE_PT, PdfInfo, contains, read_pdf
 
@@ -146,7 +149,7 @@ class MavatAssist:
         self,
         project_root: Path,
         downloads: Path,
-        library: PlansLibrary | None = None,
+        library: OfficeLibrary | None = None,
         opener: Callable[[str], None] | None = None,
         move_filed: bool = True,
     ) -> None:
@@ -156,6 +159,10 @@ class MavatAssist:
             raise FileNotFoundError(f"no manifest.json in {project_root}")
         self._manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
         self.plans = [Plan.model_validate(p) for p in self._manifest.get("plans", [])]
+        # Manifests from before 2026-10-29 have no city; every run until then was in
+        # Bnei Brak, the only city system the tool supports.
+        cities = [p.get("city") for p in self._manifest.get("parcels", []) if p.get("city")]
+        self._city = cities[0] if cities else CITY_NAME
         self.downloads_dir = downloads
         self.library = library
         self._opener = opener or open_in_browser
@@ -167,6 +174,9 @@ class MavatAssist:
         self.active: str | None = None
         self.filed: list[FiledFile] = []
         self.unidentified: dict[str, UnidentifiedFile] = {}
+        if library is not None:
+            for warning in library.open():
+                self._log(f"library: {warning}", logging.WARNING)
 
     # --- public API (CLI and service) ------------------------------------------------
 
@@ -432,12 +442,30 @@ class MavatAssist:
     def _add_to_library(self, plan: Plan, target: Path, document: Document) -> bool:
         if self.library is None:
             return False
-        relative = target.relative_to(self.organizer.plan_dir(plan)).as_posix()
+        if not plan.city:
+            plan = plan.model_copy(update={"city": self._city})
+        record = self.library.find(plan)
+        decision = known_decision(
+            self.library, plan, record.plan if record else None
+        ) or classify_scope(plan, None, None, 1.0)
+        file = NewFile(
+            local_path=target,
+            path=target.relative_to(self.organizer.plan_dir(plan)).as_posix(),
+            kind=document.kind,
+            title=document.title,
+            source=SOURCE,
+            url=document.url,
+        )
+        warnings: list[str] = []
         try:
-            self.library.add(plan, [(document, target, relative)])
+            self.library.record(
+                plan, LibraryUpdate(decision=decision, reported=False), [file], warnings
+            )
         except (LibraryError, OSError) as exc:
             self._log(f"library: plan {plan.number} not saved: {exc}", logging.WARNING)
             return False
+        for warning in warnings:
+            self._log(f"library: {warning}", logging.WARNING)
         return True
 
     def _finish(self, path: Path) -> None:

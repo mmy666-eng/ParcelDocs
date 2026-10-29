@@ -79,6 +79,7 @@ def parse_plans(payload: dict, files_base: str) -> list[Plan]:
         number = (row.get("planNumber") or "").strip()
         if not number:
             continue
+        source_id = str(row["planId"]) if row.get("planId") else None
         plans.append(
             Plan(
                 number=number,
@@ -86,7 +87,8 @@ def parse_plans(payload: dict, files_base: str) -> list[Plan]:
                 status=(row.get("status") or "").strip(),
                 source=SOURCE,
                 approval_date=parse_short_date(row.get("statusDate") or ""),
-                source_id=str(row["planId"]) if row.get("planId") else None,
+                source_id=source_id,
+                source_ids={SOURCE: source_id} if source_id else {},
                 documents=parse_documents(row.get("documentsSet") or {}, files_base),
             )
         )

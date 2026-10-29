@@ -1,7 +1,8 @@
 """Approved plans by location from the Planning Administration ArcGIS layer (docs/sources.md §3א).
 
 Plan documents live on mavat, which requires reCAPTCHA (§3ד), so this provider
-returns no documents; plans found only here are marked for manual download.
+returns no documents; plans found only here are marked for manual download. It does
+return each plan's boundary, city and committee level, for the office library.
 """
 
 import json
@@ -10,6 +11,7 @@ from datetime import UTC, datetime
 
 from shapely.geometry import MultiPolygon, Polygon
 from shapely.geometry.base import BaseGeometry
+from shapely.ops import unary_union
 
 from app.download.downloader import HttpClient, SourceError
 from app.models import Document, Plan
@@ -18,7 +20,10 @@ log = logging.getLogger(__name__)
 
 SOURCE = "iplan"
 APPROVED_STATUS = "אישור"
-_FIELDS = "pl_number,pl_name,station_desc,entity_subtype_desc,pl_date_8,pl_url,mp_id"
+_FIELDS = (
+    "pl_number,pl_name,station_desc,entity_subtype_desc,pl_date_8,pl_url,mp_id,"
+    "plan_county_name,jurstiction_area_name,pl_by_auth_of"
+)
 
 
 class IplanPlansProvider:
@@ -37,7 +42,9 @@ class IplanPlansProvider:
                 "inSR": "2039",
                 "spatialRel": "esriSpatialRelIntersects",
                 "outFields": _FIELDS,
-                "returnGeometry": "false",
+                "returnGeometry": "true",
+                "outSR": "2039",
+                "geometryPrecision": "2",
                 "f": "json",
             },
         )
@@ -46,7 +53,7 @@ class IplanPlansProvider:
             raise SourceError(f"iplan: {payload['error']}")
         features = payload.get("features", [])
         plans = [
-            _to_plan(f["attributes"])
+            _to_plan(f["attributes"], f.get("geometry"))
             for f in features
             if f["attributes"].get("station_desc") == APPROVED_STATUS
         ]
@@ -71,8 +78,32 @@ def _esri_polygon(geometry: BaseGeometry) -> dict:
     return {"rings": rings, "spatialReference": {"wkid": 2039}}
 
 
-def _to_plan(attrs: dict) -> Plan:
+def boundary_from_rings(geometry: dict | None) -> BaseGeometry | None:
+    """An ArcGIS polygon (outer rings clockwise, holes counterclockwise) as a shapely shape."""
+    rings = (geometry or {}).get("rings") or []
+    outers: list[Polygon] = []
+    holes: list[Polygon] = []
+    for ring in rings:
+        if len(ring) < 4:
+            continue
+        polygon = Polygon(ring)
+        # Shapely's exterior.is_ccw is False for clockwise rings, which ArcGIS uses for outers.
+        (holes if polygon.exterior.is_ccw else outers).append(polygon.buffer(0))
+    if not outers:
+        return None
+    shape = unary_union(outers)
+    if holes:
+        shape = shape.difference(unary_union(holes))
+    return shape if not shape.is_empty else None
+
+
+def _to_plan(attrs: dict, geometry: dict | None = None) -> Plan:
     published = attrs.get("pl_date_8")
+    boundary = boundary_from_rings(geometry)
+    level = attrs.get("pl_by_auth_of")
+    # A national plan has no city of its own (its jurisdiction field names one of many).
+    city = "" if level == 1 else attrs.get("plan_county_name") or attrs.get("jurstiction_area_name")
+    source_id = str(int(attrs["mp_id"])) if attrs.get("mp_id") else None
     return Plan(
         number=attrs["pl_number"].strip(),
         name=(attrs.get("pl_name") or "").strip(),
@@ -80,6 +111,10 @@ def _to_plan(attrs: dict) -> Plan:
         source=SOURCE,
         plan_type=attrs.get("entity_subtype_desc"),
         approval_date=datetime.fromtimestamp(published / 1000, UTC).date() if published else None,
-        source_id=str(int(attrs["mp_id"])) if attrs.get("mp_id") else None,
+        source_id=source_id,
+        source_ids={SOURCE: source_id} if source_id else {},
         mavat_url=attrs.get("pl_url"),
+        city=(city or "").strip() or None,
+        authority_level=int(level) if level else None,
+        boundary_wkt=boundary.wkt if boundary is not None else None,
     )

@@ -183,8 +183,15 @@ namespace ParcelDocs.Plugin
             name.Width = Math.Min(name.Width, MaxNameColumnWidth);
         }
 
-        /// <summary>Where the documents come from, as the office calls it.</summary>
+        /// <summary>Where the documents come from, as the office calls it; "library+rmi" → "ספרייה + רמ"י".</summary>
         public static string SourceLabel(string source)
+        {
+            if (string.IsNullOrEmpty(source))
+                return "";
+            return string.Join(" + ", source.Split('+').Select(PartLabel));
+        }
+
+        private static string PartLabel(string source)
         {
             switch (source)
             {
@@ -192,7 +199,8 @@ namespace ParcelDocs.Plugin
                 case "rmi": return "רמ\"י";
                 case "bnei_brak": return "עירייה";
                 case "mavat": return "מבא\"ת";
-                default: return source ?? "";
+                case "office": return "עותק משרדי";
+                default: return source;
             }
         }
 

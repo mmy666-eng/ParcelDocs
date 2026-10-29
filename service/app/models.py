@@ -3,7 +3,7 @@
 import datetime as dt
 from enum import StrEnum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Address(BaseModel):
@@ -17,6 +17,8 @@ class Parcel(BaseModel):
     helka: int
     geometry_wkt: str | None = None
     status: str | None = None
+    # Municipality name from the cadastre (LOCALITY_N), e.g. "בני ברק".
+    city: str | None = None
     addresses: list[Address] = []
 
 
@@ -25,6 +27,14 @@ class DocumentKind(StrEnum):
     MAP = "תשריט"
     APPENDIX = "נספח"
     PERMIT = "היתר"
+
+
+class PlanScope(StrEnum):
+    """Where a plan applies: one area, a whole city, or a national/district plan."""
+
+    SPECIFIC = "ספציפית"
+    CITYWIDE = "כלל-עירונית"
+    NATIONAL = "ארצית"
 
 
 class Document(BaseModel):
@@ -54,6 +64,14 @@ class Plan(BaseModel):
     # Where the documents chosen for download come from (library / rmi / bnei_brak / mavat).
     documents_source: str | None = None
     manual_action: str | None = None
+    city: str | None = None
+    scope: PlanScope | None = None
+    # Committee level in iplan (pl_by_auth_of): 1 national, 2 district, 3 local.
+    authority_level: int | None = None
+    # The plan's id in every source that reported it, e.g. {"bnei_brak": "3896"}.
+    source_ids: dict[str, str] = {}
+    # Plan boundary (ITM WKT) from iplan. Large, so kept out of the manifest and the API.
+    boundary_wkt: str | None = Field(default=None, exclude=True)
 
 
 class Permit(BaseModel):

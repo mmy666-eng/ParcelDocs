@@ -28,7 +28,6 @@ from app.pipeline import (
     NotFoundError,
     Pipeline,
     ResolveResult,
-    make_library,
     permit_id,
     plan_id,
 )
@@ -132,9 +131,13 @@ def create_app(
     @app.get("/health")
     def health() -> dict[str, object]:
         disabled = set(config.disabled_sources)
+        library = pipeline.library
         return {
             "status": "ok",
             "output_dir": str(config.output_dir),
+            # path, whether the shared folder answers, plans in the index, plans waiting
+            # in the local copy for the share to come back.
+            "library": library.status(timeout_seconds=2.0) if library else "off",
             "sources": {
                 "govmap": "enabled",
                 "iplan": "enabled",
@@ -190,7 +193,7 @@ def create_app(
             assist["current"] = MavatAssist(
                 Path(request.folder),
                 downloads_dir(config),
-                make_library(config),
+                pipeline.library,
                 opener=opener,
                 move_filed=config.move_filed_downloads,
             )

@@ -6,6 +6,7 @@ the saved fixtures under tests/fixtures.
 
 import logging
 import re
+from collections.abc import Collection
 from datetime import date, datetime
 from urllib.parse import urlencode
 
@@ -22,6 +23,7 @@ log = logging.getLogger(__name__)
 SOURCE = "bnei_brak"
 IN_FORCE = "בתוקף"
 CITY_CODE = 6100  # בני ברק in GetYeshuvim
+CITY_NAME = "בני ברק"
 
 _NOT_FOUND_MARKER = "לא ניתן להציג את המידע המבוקש"
 _NO_RESULTS_MARKER = "לא אותרו תוצאות"
@@ -178,7 +180,15 @@ class BneiBrakPlansProvider:
                 resolved.append(gush_file)
         return resolved
 
-    def find_by_parcels(self, gush_files: list[GushFile]) -> list[Plan]:
+    def find_by_parcels(
+        self, gush_files: list[GushFile], skip_details: Collection[int] = ()
+    ) -> list[Plan]:
+        """Plans in force for the parcel files, with their documents (GetTabaFile).
+
+        Plans in skip_details (their documents are already in the office library) are
+        built from the parcel file's listing alone, which saves a request each; such an
+        id that no parcel file lists is left out.
+        """
         ids: dict[int, PlanRef | None] = {}
         for gush_file in gush_files:
             for ref in gush_file.plans:
@@ -188,7 +198,13 @@ class BneiBrakPlansProvider:
             ids.setdefault(complot_id, None)
 
         plans = []
+        skipped = 0
         for complot_id, ref in ids.items():
+            if complot_id in skip_details:
+                if ref is not None:
+                    plans.append(_listed_plan(ref))
+                skipped += 1
+                continue
             taba = self._client.taba_file(complot_id)
             if taba is None:
                 log.warning("Complot: no plan file for id %d", complot_id)
@@ -198,7 +214,11 @@ class BneiBrakPlansProvider:
                 log.info("Complot: skipping plan %s with status %s", plan.number, plan.status)
                 continue
             plans.append(plan)
-        log.info("Complot: %d plans in force", len(plans))
+        log.info(
+            "Complot: %d plans in force (%d without GetTabaFile: documents in the library)",
+            len(plans),
+            skipped,
+        )
         return plans
 
     def find_by_parcel(self, gush: int, helka: int) -> list[Plan]:
@@ -265,7 +285,22 @@ def _to_plan(taba: TabaFile, ref: PlanRef | None) -> Plan:
         approval_date=taba.yalkut_date or taba.status_date or (ref.status_date if ref else None),
         yalkut=taba.yalkut,
         source_id=str(taba.complot_id),
+        source_ids={SOURCE: str(taba.complot_id)},
+        city=CITY_NAME,
         documents=taba.documents,
+    )
+
+
+def _listed_plan(ref: PlanRef) -> Plan:
+    return Plan(
+        number=ref.number,
+        name=ref.name,
+        status=ref.status,
+        source=SOURCE,
+        approval_date=ref.status_date,
+        source_id=str(ref.complot_id),
+        source_ids={SOURCE: str(ref.complot_id)},
+        city=CITY_NAME,
     )
 
 
