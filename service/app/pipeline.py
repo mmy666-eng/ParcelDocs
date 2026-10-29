@@ -2,6 +2,8 @@
 
 resolve finds parcels, approved plans and granted permits without downloading;
 download fetches the documents of the items the user kept and builds the folder.
+Only specific plans are offered for download; city-wide and national plans that apply
+to the parcel are listed in the report ("חלות על החלקה – לא הורדו") and not downloaded.
 
 Plan names come from the office library and from iplan, the Israel Land Authority (rmi)
 and the city system (PRD §4.3): (א) the library's index is searched for the place, (ב) the
@@ -62,6 +64,7 @@ from app.output.plan_scope import (
     classify_scope,
 )
 from app.providers.bnei_brak import (
+    CITY_NAME,
     IN_FORCE,
     BneiBrakPermitsProvider,
     BneiBrakPlansProvider,
@@ -95,6 +98,7 @@ RMI_UNAVAILABLE = 'רמ"י (איתור תוכניות) לא זמין – תכנ�
 LIBRARY_UNAVAILABLE = "הספרייה המשרדית לא זמינה"
 
 CORE_KINDS = (DocumentKind.INSTRUCTIONS, DocumentKind.MAP)
+APPLICABLE_SECTION = "חלות על החלקה – לא הורדו"
 
 _LOCAL_NUMBER = re.compile(r"(?:בב/)?((?:מק/)?\d+(?:/[֐-׿\d]+)+)")
 
@@ -108,6 +112,7 @@ class ResolveResult(BaseModel):
     gush: int
     helka: int
     parcels: list[Parcel]
+    # Specific plans: offered for download.
     plans: list[Plan]
     plan_documents: dict[str, list[Document]]
     permits: list[Permit]
@@ -120,6 +125,8 @@ class ResolveResult(BaseModel):
     city: str | None = None
     # Per plan id: what to write to the office library after the download (step ד).
     library_updates: dict[str, LibraryUpdate] = {}
+    # City-wide and national plans that apply to the parcel: listed, never downloaded.
+    applicable: list[Plan] = []
 
 
 class DownloadResult(BaseModel):
@@ -592,7 +599,7 @@ class Pipeline:
             record = records.get(plan_id(plan))
             entry = record.plan if record else None
             decision = known_decision(library, plan, entry) or self._classify(plan)
-            plan.scope = decision.scope
+            plan.scope, plan.scope_note = decision.scope, decision.note
             found_for: set[tuple[int, int]] = set()
             for source, source_id in plan.source_ids.items():
                 found_for |= hits.get(f"{source}:{source_id}", set())
@@ -607,6 +614,14 @@ class Pipeline:
                 reported=plan.source != LIBRARY_SOURCE,
             )
 
+        applicable = [p for p in plans if p.scope != PlanScope.SPECIFIC]
+        plans = [p for p in plans if p.scope == PlanScope.SPECIFIC]
+        if applicable:
+            log.info(
+                "%s: %s",
+                APPLICABLE_SECTION,
+                ", ".join(f"{p.number} ({p.scope.value})" for p in applicable if p.scope),
+            )
         plan_documents = self._plan_documents(plans, city_available, warnings)
 
         permits: list[Permit] = []
@@ -634,23 +649,42 @@ class Pipeline:
             warnings=warnings,
             city=run_city,
             library_updates=updates,
+            applicable=applicable,
         )
 
     def _documents_in_library(self, gush_files: list[GushFile]) -> set[int]:
-        """Complot ids whose plan file (GetTabaFile) is not needed: the library has the
-        instructions and a map, or checked the city system recently."""
+        """Complot ids whose plan file (GetTabaFile) is not needed: city-wide and national
+        plans (never downloaded), and plans whose instructions and map are in the library
+        or that were checked in the city system recently."""
         library = self.library
-        if library is None or not library.available:
+        if library is None:
             return set()
-        ids = {ref.complot_id for g in gush_files for ref in g.plans if ref.status == IN_FORCE}
-        ids |= set(self.config.citywide_plans)
+        refs = {
+            ref.complot_id: ref for g in gush_files for ref in g.plans if ref.status == IN_FORCE
+        }
         skip = set()
-        for complot_id in ids:
+        for complot_id in {*refs, *self.config.citywide_plans}:
             item = library.find_source(CITY_SOURCE, str(complot_id))
-            if item is not None and (
-                item.plan.complete()
-                or recently_checked(item.plan, CITY_SOURCE, self.config.library_recheck_days)
-            ):
+            ref = refs.get(complot_id)
+            listed = Plan(
+                number=ref.number if ref else "",
+                name="",
+                status="",
+                source=CITY_SOURCE,
+                city=CITY_NAME,
+                source_ids={CITY_SOURCE: str(complot_id)},
+            )
+            decision = known_decision(library, listed, item.plan if item else None)
+            not_downloaded = decision is not None and decision.scope != PlanScope.SPECIFIC
+            in_library = (
+                item is not None
+                and library.available
+                and (
+                    item.plan.complete()
+                    or recently_checked(item.plan, CITY_SOURCE, self.config.library_recheck_days)
+                )
+            )
+            if not_downloaded or in_library:
                 skip.add(complot_id)
         return skip
 
@@ -750,7 +784,9 @@ class Pipeline:
             if not is_national_number(plan.number) or plan.number in numbers:
                 continue
             record = library.find(plan) if library else None
-            if record is not None and record.plan.complete():
+            if record is not None and (
+                record.plan.complete() or record.plan.scope != PlanScope.SPECIFIC
+            ):
                 continue
             for extra in self.rmi.find_by_number(plan.number):
                 found.setdefault(extra.source_id or extra.number, extra)
@@ -874,6 +910,7 @@ class Pipeline:
             files,
             warnings,
             permits,
+            result.applicable,
         )
         if result.polygon_wkt:
             organizer.write_polygon_dxf(result.polygon_wkt, result.parcels)
@@ -898,7 +935,7 @@ class Pipeline:
         source (not from the library itself) for the plans that were downloaded."""
         if self.library is None:
             return
-        for plan in result.plans:
+        for plan in [*result.plans, *result.applicable]:
             update = result.library_updates.get(plan_id(plan))
             if update is None:
                 continue

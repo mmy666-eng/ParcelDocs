@@ -3,7 +3,7 @@ sync the local copy, rebuild this computer's index, and move a library of the ol
 layout (<library>/<plan>/) into the city layout.
 
     python -m app.library list [--city "בני ברק"] [--scope כלל-עירונית] [--basis default]
-    python -m app.library scope "מק/מעליות" כלל-עירונית --city "בני ברק"
+    python -m app.library scope "מק/מעליות" "105*" כלל-עירונית --city "בני ברק"
     python -m app.library sync
     python -m app.library rebuild
     python -m app.library migrate --source C:/ParcelDocs_Library [--delete-source]
@@ -67,12 +67,14 @@ def list_plans(
     return 0
 
 
-def set_scope(library: OfficeLibrary, number: str, scope: str, city: str) -> int:
-    item = library.set_scope(city, number, parse_scope(scope))
-    if item is None:
-        print(f"נשמר ב-overrides.yaml. התכנית {number} עדיין לא במאגר; התיקון יחול כשתימצא.")
-    else:
-        print(f"{item.plan.number}: {item.plan.scope.value} ({item.folder})")
+def set_scope(library: OfficeLibrary, numbers: list[str], scope: str, city: str) -> int:
+    """Plan numbers, or series rules ending in * ("105*", "מק/105*")."""
+    covered = library.set_scopes(city, numbers, parse_scope(scope))
+    for number, items in covered.items():
+        if not items:
+            print(f"{number}: נשמר ב-overrides.yaml; עדיין לא במאגר, ויחול כשתימצא.")
+        for item in items:
+            print(f"{number}: {item.plan.number} – {item.plan.scope.value} ({item.folder})")
     return 0
 
 
@@ -185,7 +187,7 @@ def main(argv: list[str] | None = None) -> int:
     listing.add_argument("--scope", help="ספציפית / כלל-עירונית / ארצית")
     listing.add_argument("--basis", choices=[b.value for b in ScopeBasis])
     scope = commands.add_parser("scope", help="תיקון ידני של plan_scope (overrides.yaml)")
-    scope.add_argument("number")
+    scope.add_argument("numbers", nargs="+", help='מספרי תכניות, או כלל לסדרה כמו "105*"')
     scope.add_argument("scope", help="ספציפית / כלל-עירונית / ארצית")
     scope.add_argument("--city", default=CITY_NAME)
     commands.add_parser("sync", help="סנכרון העותק המקומי והאינדקס")
@@ -217,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "list":
             return list_plans(library, args.city, args.scope, args.basis)
         if args.command == "scope":
-            return set_scope(library, args.number, args.scope, args.city)
+            return set_scope(library, args.numbers, args.scope, args.city)
         if args.command == "sync":
             print(library.status())
             return 0

@@ -9,7 +9,14 @@ from pathlib import Path
 from app.config import Config, load_config
 from app.download.downloader import HttpClient, SourceError
 from app.models import Address
-from app.pipeline import NotFoundError, Pipeline, ResolveResult, permit_id, plan_id
+from app.pipeline import (
+    APPLICABLE_SECTION,
+    NotFoundError,
+    Pipeline,
+    ResolveResult,
+    permit_id,
+    plan_id,
+)
 
 log = logging.getLogger("parceldocs")
 
@@ -68,14 +75,17 @@ def _print_summary(
     print("חלקות:")
     for p in result.parcels:
         print(f"  {p.gush}/{p.helka}  {_addresses(p.addresses)}")
-    print(f'\nתב"עות מאושרות ({len(result.plans)}):')
+    print(f'\nתב"עות ספציפיות להורדה ({len(result.plans)}):')
     for plan in result.plans:
         when = plan.approval_date.isoformat() if plan.approval_date else "-"
         docs = len(result.plan_documents.get(plan_id(plan), []))
         source = source_label(plan.documents_source)
         note = f"  ⚠ {plan.manual_action}" if plan.manual_action else f"  {docs} מסמכים ({source})"
-        scope = f" [{plan.scope.value}]" if plan.scope else ""
-        print(f"  {plan.number:<16} {when}  {plan.name[:50]}{scope}{note}")
+        print(f"  {plan.number:<16} {when}  {plan.name[:50]}{note}")
+    print(f"\n{APPLICABLE_SECTION} ({len(result.applicable)}):")
+    for plan in result.applicable:
+        scope = plan.scope.value if plan.scope else "-"
+        print(f"  {plan.number:<16} {scope:<12} {plan.name[:50]}  ({plan.scope_note or ''})")
     print(f"\nהיתרי בנייה ({len(result.permits)}):")
     for permit in result.permits:
         when = str(permit.date or permit.request_date or "-")

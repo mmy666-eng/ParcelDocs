@@ -129,6 +129,24 @@ def test_manual_scope_applies_to_the_city_and_moves_national_plans(tmp_path: Pat
     assert other.override_for(_plan("מק/מעליות")) == PlanScope.NATIONAL
 
 
+def test_several_corrections_and_a_series_rule_at_once(tmp_path: Path):
+    (tmp_path / "share").mkdir()
+    library = _computer(tmp_path, "a")
+    library.open()
+    for number in ["105/ש", "בב/105א", "1050", "מק/מעליות"]:
+        library.record(_plan(number, source="bnei_brak"), LibraryUpdate(decision=SPECIFIC), [], [])
+
+    covered = library.set_scopes("בני ברק", ["מק/מעליות", "105*"], PlanScope.CITYWIDE)
+
+    assert [i.plan.number for i in covered["מק/מעליות"]] == ["מק/מעליות"]
+    assert sorted(i.plan.number for i in covered["105*"]) == ["105/ש", "בב/105א"]
+    saved = yaml.safe_load((tmp_path / "share" / "overrides.yaml").read_text("utf-8"))
+    assert saved == {"בני ברק": {"105*": "כלל-עירונית", "מק/מעליות": "כלל-עירונית"}}
+    assert library.find(_plan("1050")).plan.scope == PlanScope.SPECIFIC
+    # A plan of the series found later gets the rule too.
+    assert library.override_for(_plan("105/ת/7")) == PlanScope.CITYWIDE
+
+
 def test_index_is_rebuilt_from_plan_json(tmp_path: Path):
     (tmp_path / "share").mkdir()
     library = _computer(tmp_path, "a")

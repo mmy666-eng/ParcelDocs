@@ -147,17 +147,30 @@ def classify_scope(
 
 
 class Overrides:
-    """Manual plan_scope corrections: {city: {plan number or alias: scope}}."""
+    """Manual plan_scope corrections: {city: {plan number or alias: scope}}.
+
+    A number ending in * is a rule for a plan series: "105*" (or "בב/105*") covers 105,
+    105/ש, בב/105א and 105/ד/2 but not 1050; "מק/105*" covers מק/105/ה. A plan's own
+    entry wins over a rule.
+    """
 
     def __init__(self, raw: dict | None = None) -> None:
         self.raw: dict[str, dict[str, str]] = {}
         self._by_key: dict[str, PlanScope] = {}
+        self._rules: list[tuple[str, str, PlanScope]] = []
         for city, plans in (raw or {}).items():
             for number, scope in (plans or {}).items():
                 self.add(str(city), str(number), parse_scope(str(scope)))
 
     def add(self, city: str, number: str, scope: PlanScope) -> None:
         self.raw.setdefault(city, {})[number] = scope.value
+        if number.endswith("*"):
+            prefix = local_key(number.removesuffix("*").strip())
+            if not prefix:
+                raise ValueError(f"כלל לא תקין: {number!r}")
+            rule = (city_key(city), prefix, scope)
+            self._rules = [r for r in self._rules if r[:2] != rule[:2]] + [rule]
+            return
         for key in self.keys(city, number, scope):
             self._by_key[key] = scope
 
@@ -165,6 +178,13 @@ class Overrides:
         for key in sorted(keys):
             if key in self._by_key and not key.startswith("s:"):
                 return self._by_key[key]
+        for key in sorted(keys):
+            if not key.startswith("l:"):
+                continue
+            _, city, local = key.split(":", 2)
+            for rule_city, prefix, scope in self._rules:
+                if city == rule_city and _in_series(local, prefix):
+                    return scope
         return None
 
     def items(self) -> list[tuple[str, str, PlanScope]]:
@@ -178,7 +198,14 @@ class Overrides:
     def keys(city: str, number: str, scope: PlanScope | None = None) -> set[str]:
         """The city's key; national plans (by number form, or set to national) also keep
         theirs in the national space."""
+        if number.endswith("*"):
+            return set()
         keys = identity_keys([number], city, False)
         if scope == PlanScope.NATIONAL or has_national_number_form(number):
             keys |= identity_keys([number], None, True)
         return keys
+
+
+def _in_series(key: str, prefix: str) -> bool:
+    """105ש is in the 105 series, 1050 is not."""
+    return key.startswith(prefix) and (len(key) == len(prefix) or not key[len(prefix)].isdigit())

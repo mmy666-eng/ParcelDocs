@@ -116,6 +116,7 @@ class OutputOrganizer:
         files: list[ManifestEntry],
         warnings: list[str],
         permits: list[Permit] | None = None,
+        applicable: list[Plan] | None = None,
     ) -> Path:
         manifest = {
             "project": project,
@@ -128,6 +129,13 @@ class OutputOrganizer:
                 for p in plans
             ],
             "permits": [p.model_dump(mode="json") for p in permits or []],
+            # The report's "חלות על החלקה – לא הורדו": city-wide and national plans.
+            "applicable_plans": [
+                p.model_dump(
+                    mode="json", exclude={"documents", "documents_source", "manual_action"}
+                )
+                for p in applicable or []
+            ],
             "files": [f.model_dump(mode="json") for f in files],
             "warnings": warnings,
         }

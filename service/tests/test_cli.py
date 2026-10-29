@@ -119,8 +119,11 @@ def test_full_run_with_city_system(tmp_path: Path):
     # Old plans only rmi knows are added, with their documents.
     assert plans["בב/68"]["source"] == "rmi"
     assert plans["בב/68"]["approval_date"] == "1959-06-04"
-    # National plan only in iplan: manual download from mavat.
-    assert plans["תמא/ 60"]["manual_action"] == MANUAL_MAVAT
+    # A national plan applies to the parcel but is not downloaded: a report line only.
+    assert "תמא/ 60" not in plans
+    applicable = {p["number"]: p for p in manifest["applicable_plans"]}
+    assert applicable["תמא/ 60"]["scope"] == "ארצית"
+    assert applicable["תמא/ 60"]["scope_note"] == "iplan: תכנית מתאר ארצית"
     # Listed by rmi (found by number) but without documents.
     assert plans["501-0175646"]["source"] == "iplan+rmi"
     assert plans["501-0175646"]["manual_action"] == MANUAL_MAVAT
@@ -156,10 +159,11 @@ def test_disabled_city_system_is_never_contacted(tmp_path: Path):
     assert "handasi.complot.co.il" not in hosts
     assert "archive.gis-net.co.il" not in hosts
     manifest = _manifest(tmp_path)
-    # 8 plans from iplan and 6 older ones from rmi; rmi has documents for 12 of them.
-    assert len(manifest["plans"]) == 14
+    # 8 plans from iplan and 6 older ones from rmi; the national one is only listed.
+    assert len(manifest["plans"]) == 13
+    assert [p["number"] for p in manifest["applicable_plans"]] == ["תמא/ 60"]
     manual = sorted(p["number"] for p in manifest["plans"] if p["manual_action"])
-    assert manual == ["501-0175646", "תמא/ 60"]
+    assert manual == ["501-0175646"]
     assert all(
         p["manual_action"] == MANUAL_CITY_UNAVAILABLE
         for p in manifest["plans"]
@@ -192,7 +196,7 @@ def test_city_and_rmi_disabled_leaves_plans_for_mavat(tmp_path: Path):
     assert code == 0
     assert "apps.land.gov.il" not in hosts
     manifest = _manifest(tmp_path)
-    assert len(manifest["plans"]) == 8
+    assert len(manifest["plans"]) + len(manifest["applicable_plans"]) == 8
     assert all(p["manual_action"] == MANUAL_CITY_UNAVAILABLE for p in manifest["plans"])
     assert manifest["files"] == []
 

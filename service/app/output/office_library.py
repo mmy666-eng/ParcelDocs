@@ -51,7 +51,8 @@ MANUAL_NOTE = "תיקון ידני (overrides.yaml)"
 _OVERRIDES_HEADER = """\
 # ParcelDocs – תיקונים ידניים של plan_scope, לפי עיר ומספר תכנית (או כינוי).
 # ערכים: ספציפית / כלל-עירונית / ארצית.
-# כלל-עירונית: התכנית נכללת בכל הרצה בעיר. ארצית: התיקייה עוברת ל-ארציות.
+# כלל-עירונית / ארצית: התכנית חלה על כל העיר ולא יורדת – רק שורה בדוח. ארצית עוברת ל-ארציות.
+# מספר שמסתיים ב-* הוא כלל לסדרה: "105*" = 105, 105/ש, בב/105א (לא 1050). תכנית בשמה גוברת על כלל.
 # אפשר לערוך ביד, או: python -m app.library scope "<מספר>" <סיווג> --city "<עיר>"
 """
 
@@ -241,21 +242,35 @@ class OfficeLibrary:
         return self._record_in(LOCAL, plan, incoming, files)
 
     def set_scope(self, city: str, number: str, scope: PlanScope) -> IndexedPlan | None:
-        """A manual correction: kept in overrides.yaml on the share and applied now."""
+        """One manual correction; the plan it now applies to, if the library has it."""
+        found = self.set_scopes(city, [number], scope)[number]
+        return found[0] if found else None
+
+    def set_scopes(
+        self, city: str, numbers: list[str], scope: PlanScope
+    ) -> dict[str, list[IndexedPlan]]:
+        """Manual corrections (plan numbers, or series rules such as "105*"), kept in
+        overrides.yaml on the share and applied now; per number, the plans it covers."""
         if self.shared is None or not self._reachable():
             raise LibraryError(SHARED_UNAVAILABLE)
         self._available = True
         with self.shared.locked_root():
             text = self.shared.read_root_file(OVERRIDES_FILE)
             overrides = Overrides(yaml.safe_load(text) if text else {})
-            overrides.add(city, number, scope)
+            for number in numbers:
+                overrides.add(city, number, scope)
             body = yaml.safe_dump(overrides.raw, allow_unicode=True, sort_keys=True)
             self.shared.write_root_file(OVERRIDES_FILE, _OVERRIDES_HEADER + body)
         self.overrides = overrides
         self.index.set_meta("overrides", json.dumps(overrides.raw, ensure_ascii=False))
         self.index.sync(SHARED, self.shared)
         self._apply_overrides()
-        return self._best(self.index.find(Overrides.keys(city, number, scope), (SHARED,)))
+        plans = self.index.plans(SHARED)
+        covered: dict[str, list[IndexedPlan]] = {}
+        for number in numbers:
+            single = Overrides({city: {number: scope.value}})
+            covered[number] = [i for i in plans if single.lookup(i.plan.match_keys())]
+        return covered
 
     # --- internals -------------------------------------------------------------------
 
@@ -303,12 +318,11 @@ class OfficeLibrary:
         self.index.set_meta("overrides", json.dumps(self.overrides.raw, ensure_ascii=False))
 
     def _apply_overrides(self) -> None:
-        for city, number, scope in self.overrides.items():
-            item = self._best(self.index.find(Overrides.keys(city, number, scope), (SHARED,)))
-            if item is None:
-                continue
+        """Every plan in the share that a correction or a series rule covers."""
+        for item in self.index.plans(SHARED):
             plan = item.plan
-            if plan.scope == scope and plan.scope_basis == ScopeBasis.MANUAL:
+            scope = self.overrides.lookup(plan.match_keys())
+            if scope is None or (plan.scope == scope and plan.scope_basis == ScopeBasis.MANUAL):
                 continue
             log.info("library: plan %s set to %s by %s", plan.number, scope.value, OVERRIDES_FILE)
             corrected = plan.model_copy(

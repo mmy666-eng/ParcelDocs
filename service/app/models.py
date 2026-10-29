@@ -66,6 +66,8 @@ class Plan(BaseModel):
     manual_action: str | None = None
     city: str | None = None
     scope: PlanScope | None = None
+    # Why the plan has this scope, e.g. "הגבול מכסה 95% משטח הרשות".
+    scope_note: str | None = None
     # Committee level in iplan (pl_by_auth_of): 1 national, 2 district, 3 local.
     authority_level: int | None = None
     # The plan's id in every source that reported it, e.g. {"bnei_brak": "3896"}.

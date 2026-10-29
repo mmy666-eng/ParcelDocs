@@ -94,3 +94,33 @@ def test_overrides_by_city_and_any_number_form():
     assert parse_scope("כלל עירונית") == PlanScope.CITYWIDE
     with pytest.raises(ValueError):
         Overrides({"בני ברק": {"1": "עירונית"}})
+
+
+def test_series_rules_and_their_exceptions():
+    overrides = Overrides(
+        {
+            "בני ברק": {
+                "105*": "כלל-עירונית",
+                "מק/105*": "כלל-עירונית",
+                "105/ז": "ספציפית",
+            }
+        }
+    )
+
+    def scope(number: str, city: str = "בני ברק"):
+        plan = Plan(number=number, name="", status="", source="x", city=city)
+        return overrides.lookup(lookup_keys(plan))
+
+    for number in ["105", "105/ש", "בב/105א", "105/ד/2", "מק/105/ה", "בב/מק/105/פ"]:
+        assert scope(number) == PlanScope.CITYWIDE, number
+    assert scope("1050") is None
+    assert scope("מק/1050") is None
+    assert scope("105/ז") == PlanScope.SPECIFIC
+    assert scope("105/ש", city="ערד") is None
+    # The same rule written with the city prefix.
+    assert (
+        Overrides({"בני ברק": {"בב/105*": "ארצית"}}).lookup(
+            lookup_keys(Plan(number="105/ש", name="", status="", source="x", city="בני ברק"))
+        )
+        == PlanScope.NATIONAL
+    )

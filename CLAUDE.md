@@ -54,7 +54,8 @@ ParcelDocs: פוליליין סגור ב-AutoCAD/ZWCAD (ITM, EPSG:2039) ← זי
 - **ספרייה משרדית** (PRD §4.3.1): `plans_library` ב-`config.yaml`, בנתיב UNC `//server/מסמכים משותפים/ראשי/עבודות/תב''עות` (זה `Y:`, אבל האות לא תמיד מחוברת כשהשירות עולה).
   - **מבנה:** `<עיר>/<תכנית>/plan.json`. הרשומה היא `plan.json`. האינדקס הוא SQLite מקומי (`output\.cache\library_index.sqlite`), ואסור להעביר אותו לתיקיית הרשת.
   - **כשהרשת לא זמינה:** קבצים חדשים נשמרים ב-`output\.cache\library_local` ומסונכרנים כשהיא חוזרת.
-  - **פקודות:** `.venv\Scripts\python -m app.library list|scope|sync|rebuild|migrate|import-office`.
+  - **פקודות:** `.venv\Scripts\python -m app.library list|scope|sync|rebuild|migrate|import-office`. `scope` מקבל כמה מספרים, וגם כלל לסדרה (`"105*"`).
+  - **מה יורד:** רק תכניות ספציפיות. כלל-עירוניות וארציות הן רק שורה ב-`applicable_plans`, כלומר בסעיף "חלות על החלקה – לא הורדו".
   - **`import-office`** מעתיק תב"עות שהמשרד שמר (`עבודות\00-תב''ע`, `עבודות\00תבע`) ולא משנה את המקור. העותקים נשמרים תחת `משרד/` עם מקור `office`, ולא מחליפים מסמכים ממקור.
 - תיקיית ההורדות: `downloads_dir` (ברירת מחדל `~/Downloads`).
 - מקורות שאפשר להשבית ב-`disabled_sources`: `bnei_brak`, `rmi`.

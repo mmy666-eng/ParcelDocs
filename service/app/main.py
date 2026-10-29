@@ -75,12 +75,23 @@ class PermitOut(BaseModel):
     manual_action: str | None
 
 
+class ApplicablePlanOut(BaseModel):
+    number: str
+    name: str
+    scope: str | None
+    scope_note: str | None
+    approval_date: date | None
+
+
 class ResolveResponse(BaseModel):
     resolve_id: str
     parcels: list[ParcelOut]
+    # Specific plans, offered for download.
     plans: list[PlanOut]
     permits: list[PermitOut]
     warnings: list[str]
+    # City-wide and national plans that apply to the parcel; not offered for download.
+    applicable: list[ApplicablePlanOut] = []
 
 
 class DownloadRequest(BaseModel):
@@ -265,6 +276,16 @@ def _resolve_response(result: ResolveResult) -> ResolveResponse:
                 mavat_url=p.mavat_url,
             )
             for p in result.plans
+        ],
+        applicable=[
+            ApplicablePlanOut(
+                number=p.number,
+                name=p.name,
+                scope=p.scope.value if p.scope else None,
+                scope_note=p.scope_note,
+                approval_date=p.approval_date,
+            )
+            for p in result.applicable
         ],
         permits=[
             PermitOut(

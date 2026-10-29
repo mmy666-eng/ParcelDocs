@@ -82,14 +82,19 @@ def test_library_fills_up_and_later_runs_ask_only_what_is_missing(tmp_path: Path
     # The parcel file lists 14 plans; the fixtures have plan files for 3896 and 1201.
     assert sum(s.startswith("complot:GetTabaFile:") for s in seen) == 14
     plans = {p["number"]: p for p in manifest["plans"]}
-    assert plans["501-0873794"]["scope"] == "כלל-עירונית"
-    assert plans["תמא/ 60"]["scope"] == "ארצית"
+    applicable = {p["number"]: p for p in manifest["applicable_plans"]}
+    # City-wide and national plans are listed, not downloaded, not copied from the library.
+    assert applicable["501-0873794"]["scope"] == "כלל-עירונית"
+    assert applicable["תמא/ 60"]["scope"] == "ארצית"
+    assert "501-0873794" not in plans and "תמא/ 60" not in plans
     assert plans["מק/105/ה"]["scope"] == "ספציפית"
+    project = config.output_dir / "ראשון_ג6123_ח443_2026-10-29" / "02_תבעות"
+    assert not [d for d in project.iterdir() if d.name.startswith("501-0873794")]
     roof = _entry(tmp_path, "בני_ברק/501-0873794")
     assert (roof["scope_basis"], roof["scope_note"]) == ("area", "הגבול מכסה 95% משטח הרשות")
     assert roof["boundary_wkt"].startswith("POLYGON")
     assert {(s["source"], s["id"]) for s in roof["sources"]} >= {("bnei_brak", "3896")}
-    assert roof["parcels"] == []
+    assert roof["parcels"] == [] and roof["files"] == []
     metro = _entry(tmp_path, "ארציות/תמא-_60")
     assert metro["city"] is None and metro["files"] == []
     city_only = _entry(tmp_path, "בני_ברק/מק-105-ה")
@@ -107,10 +112,26 @@ def test_library_fills_up_and_later_runs_ask_only_what_is_missing(tmp_path: Path
     assert "muni" not in seen
     assert "archive.gis-net.co.il" not in seen
     plans = {p["number"]: p for p in manifest["plans"]}
-    assert plans["501-0873794"]["documents_source"] == "library"
     assert plans["מק/105/ה"]["documents_source"] == "library"
     plan_files = [f for f in manifest["files"] if f["path"].startswith("02_תבעות/")]
     assert {f["source"] for f in plan_files} == {"library"}
+
+
+def test_a_series_rule_lists_city_plans_without_asking_for_their_files(tmp_path: Path):
+    config = _config_with_library(tmp_path, [])
+    (tmp_path / "share" / "overrides.yaml").write_text(
+        "בני ברק:\n  מק/105*: כלל-עירונית\n", encoding="utf-8"
+    )
+
+    seen, manifest = _run(config, "כלל")
+
+    # מק/105/ה (Complot 1201) is not in the library yet; its number decides it.
+    assert "complot:GetTabaFile:1201" not in seen
+    applicable = {p["number"]: p for p in manifest["applicable_plans"]}
+    assert applicable["מק/105/ה"]["scope"] == "כלל-עירונית"
+    assert "מק/105/ה" not in {p["number"] for p in manifest["plans"]}
+    entry = _entry(tmp_path, "בני_ברק/מק-105-ה")
+    assert (entry["scope"], entry["scope_basis"], entry["files"]) == ("כלל-עירונית", "manual", [])
 
 
 def test_plans_only_the_library_knows_are_kept_when_the_city_system_is_off(tmp_path: Path):
@@ -133,11 +154,11 @@ def test_unreachable_share_warns_and_keeps_new_files_locally(tmp_path: Path):
     _, manifest = _run(config, "בלי_רשת")
 
     assert SHARED_UNAVAILABLE in manifest["warnings"]
-    assert (tmp_path / "local" / "בני_ברק" / "501-0873794" / "הוראות.pdf").is_file()
+    assert (tmp_path / "local" / "בני_ברק" / "בב-68" / "הוראות.pdf").is_file()
     log = config.output_dir / "בלי_רשת_ג6123_ח443_2026-10-29" / "99_לוג" / "run.log"
     assert SHARED_UNAVAILABLE in log.read_text("utf-8")
 
     config.plans_library.mkdir()
     _run(config, "חזרה")
-    assert (tmp_path / "offline-share" / "בני_ברק" / "501-0873794" / "הוראות.pdf").is_file()
-    assert not (tmp_path / "local" / "בני_ברק" / "501-0873794").exists()
+    assert (tmp_path / "offline-share" / "בני_ברק" / "בב-68" / "הוראות.pdf").is_file()
+    assert not (tmp_path / "local" / "בני_ברק" / "בב-68").exists()
