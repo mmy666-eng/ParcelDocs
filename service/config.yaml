@@ -13,8 +13,9 @@ retries: 4
 host_min_interval_seconds:
   handasi.complot.co.il: 5.0
 # Maximum requests per run to a host; the run reports what it could not check.
+# Complot: 60 (user's decision, 2026-10-29); 6123/443 needed 27.
 host_max_requests_per_run:
-  handasi.complot.co.il: 30
+  handasi.complot.co.il: 60
 # Hosts where a 429 stops all further requests in the run instead of waiting and retrying.
 fail_fast_429_hosts:
   - handasi.complot.co.il

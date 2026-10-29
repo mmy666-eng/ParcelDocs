@@ -47,6 +47,8 @@ ParcelDocs: פוליליין סגור ב-AutoCAD/ZWCAD (ITM, EPSG:2039) ← זי
 - עיצוב ובדיקת קוד: `.venv\Scripts\python -m ruff format app tests` ו-`.venv\Scripts\python -m ruff check app tests`
 - הרצה: `.venv\Scripts\python -m app.cli --gush 6123 --helka 443 --project "שם" [--dry-run]`
 - שירות: `.venv\Scripts\python -m app.main` (FastAPI על `127.0.0.1:8765` בלבד)
+- הפעלה ברקע: `start_service.ps1`. הסקריפט מפעיל את השירות בחלון מוסתר, עם לוג ב-`output\.cache\service.*.log`, ולא עושה כלום אם השירות כבר עונה. משימת Task Scheduler בשם "ParcelDocs Service" מריצה אותו בכל כניסה ל-Windows. הפעלה ידנית של המשימה: `Start-ScheduledTask -TaskName "ParcelDocs Service"`.
+- אחרי שינוי ב-`config.yaml` או בקוד צריך להפעיל מחדש: לעצור את תהליכי `python -m app.main` ולהריץ את המשימה.
 - מבא"ת חצי-אוטומטי לפרויקט קיים: `.venv\Scripts\python -m app.mavat_assist --folder "<תיקיית פרויקט>"`
 - ספרייה משרדית: `plans_library` ב-`config.yaml` (כרגע `C:/ParcelDocs_Library`, זמני עד שתעבור לשרת המשרד). תיקיית ההורדות: `downloads_dir` (ברירת מחדל `~/Downloads`).
 - מקורות שאפשר להשבית ב-`disabled_sources`: `bnei_brak`, `rmi`.
