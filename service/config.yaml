@@ -37,9 +37,10 @@ citywide_plans: []
 disabled_sources: []
 
 # Office library of plan documents (one folder per plan number), checked before any
-# source and filled after every download. Set to the shared folder, e.g.
+# source and filled after every download; every user writes to it. Temporary local
+# folder (user's decision, 2026-10-28) until it moves to the office server, e.g.
 # \\server\share\ParcelDocs\plans. Remove the line to turn the library off.
-plans_library: ../plans_library
+plans_library: C:/ParcelDocs_Library
 
 # Files downloaded by hand from mavat are picked up here (default: ~/Downloads).
 # downloads_dir: C:/Users/<user>/Downloads

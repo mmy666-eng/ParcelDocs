@@ -48,7 +48,7 @@ ParcelDocs: פוליליין סגור ב-AutoCAD/ZWCAD (ITM, EPSG:2039) ← זי
 - הרצה: `.venv\Scripts\python -m app.cli --gush 6123 --helka 443 --project "שם" [--dry-run]`
 - שירות: `.venv\Scripts\python -m app.main` (FastAPI על `127.0.0.1:8765` בלבד)
 - מבא"ת חצי-אוטומטי לפרויקט קיים: `.venv\Scripts\python -m app.mavat_assist --folder "<תיקיית פרויקט>"`
-- ספרייה משרדית: `plans_library` ב-`config.yaml` (ברירת מחדל `../plans_library`, להחליף בתיקייה המשותפת). תיקיית ההורדות: `downloads_dir` (ברירת מחדל `~/Downloads`).
+- ספרייה משרדית: `plans_library` ב-`config.yaml` (כרגע `C:/ParcelDocs_Library`, זמני עד שתעבור לשרת המשרד). תיקיית ההורדות: `downloads_dir` (ברירת מחדל `~/Downloads`).
 - מקורות שאפשר להשבית ב-`disabled_sources`: `bnei_brak`, `rmi`.
 
 מתוך `plugin/ParcelDocs.Plugin/` (.NET SDK 8, יעד net48):
