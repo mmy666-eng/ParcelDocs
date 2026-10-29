@@ -32,10 +32,9 @@ parcel_buffer_m: -0.5
 # included, even when they do not come up for the parcel (PRD §4.3).
 citywide_plans: []
 
-# Sources the tool must not contact. bnei_brak (Complot) blocks our IP with HTTP 429
-# since 2026-10-28; remove it from this list only after checking it answers again.
-disabled_sources:
-  - bnei_brak
+# Sources the tool must not contact (bnei_brak, rmi). bnei_brak (Complot) blocked our IP
+# with HTTP 429 on 2026-10-28; enabled again for the one approved check on 2026-10-29.
+disabled_sources: []
 
 # Office library of plan documents (one folder per plan number), checked before any
 # source and filled after every download. Set to the shared folder, e.g.
